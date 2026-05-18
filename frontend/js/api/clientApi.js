@@ -1,5 +1,5 @@
 (function attachClientApi(global) {
-  const API_BASE_URL = 'http://localhost:3000';
+  const API_BASE_URL = global.location.origin;
 
   async function request(path) {
     const response = await fetch(API_BASE_URL + path, {
@@ -9,10 +9,41 @@
     });
 
     if (!response.ok) {
-      throw new Error('API request failed: ' + path);
+      const errorBody = await readErrorBody(response);
+
+      throw new Error(errorBody || ('API request failed: ' + path));
     }
 
     return response.json();
+  }
+
+  async function requestJson(path, options) {
+    const response = await fetch(API_BASE_URL + path, {
+      method: options.method || 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(options.body || {})
+    });
+
+    const responseBody = await response.json().catch(function ignoreInvalidJson() {
+      return null;
+    });
+
+    if (!response.ok) {
+      throw new Error(responseBody && responseBody.error ? responseBody.error : 'API request failed: ' + path);
+    }
+
+    return responseBody;
+  }
+
+  async function readErrorBody(response) {
+    const responseBody = await response.json().catch(function ignoreInvalidJson() {
+      return null;
+    });
+
+    return responseBody && responseBody.error ? responseBody.error : null;
   }
 
   global.ClientApi = {
@@ -25,6 +56,12 @@
     },
     getProducts() {
       return request('/api/products');
+    },
+    createOrder(payload) {
+      return requestJson('/api/orders', {
+        method: 'POST',
+        body: payload
+      });
     }
   };
 })(window);

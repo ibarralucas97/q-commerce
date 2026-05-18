@@ -4,7 +4,8 @@
     categories: [],
     products: [],
     activeCategoryId: 'all',
-    cartOpen: false
+    cartOpen: false,
+    isSubmittingOrder: false
   };
 
   const elements = {
@@ -98,6 +99,12 @@
   function setCartOpen(isOpen) {
     state.cartOpen = isOpen;
     elements.cartPanel.classList.toggle('is-open', isOpen);
+  }
+
+  function setCheckoutSubmitting(isSubmitting) {
+    state.isSubmittingOrder = isSubmitting;
+    elements.checkoutButton.disabled = isSubmitting || global.CartStore.getSummary(state.settings ? state.settings.delivery_fee : 0, isDeliverySelected()).itemCount === 0;
+    elements.checkoutButton.textContent = isSubmitting ? 'Enviando pedido...' : 'Pedir por WhatsApp';
   }
 
   function updateAddressVisibility() {
@@ -300,6 +307,7 @@
     const lines = [
       'Hola ' + (state.settings.store_name || 'tienda') + ', quiero hacer un pedido:',
       '',
+      '*Pedido:* #' + formData.orderId,
       '*Cliente:* ' + formData.name,
       '*Telefono:* ' + formData.phone,
       '*Entrega:* ' + (formData.deliveryType === 'delivery' ? 'Delivery' : 'Retiro')
@@ -317,9 +325,9 @@
     });
 
     lines.push('');
-    lines.push('*Subtotal:* ' + formatMoney(summary.subtotal));
-    lines.push('*Delivery:* ' + formatMoney(summary.delivery));
-    lines.push('*Total:* ' + formatMoney(summary.total));
+    lines.push('*Subtotal:* ' + formatMoney(formData.subtotal));
+    lines.push('*Delivery:* ' + formatMoney(formData.deliveryFee));
+    lines.push('*Total:* ' + formatMoney(formData.total));
 
     if (formData.notes) {
       lines.push('*Observaciones:* ' + formData.notes);
@@ -328,7 +336,7 @@
     return lines.join('\n');
   }
 
-  function handleCheckout(event) {
+  async function handleCheckout(event) {
     event.preventDefault();
 
     const summary = global.CartStore.getSummary(state.settings.delivery_fee, isDeliverySelected());
@@ -368,11 +376,42 @@
       return;
     }
 
-    const message = buildWhatsappMessage(formData);
-    const whatsappUrl = 'https://wa.me/' + whatsappNumber + '?text=' + encodeURIComponent(message);
+    try {
+      setCheckoutSubmitting(true);
+      elements.checkoutHint.textContent = 'Guardando pedido...';
 
-    elements.checkoutHint.textContent = 'Redirigiendo a WhatsApp...';
-    window.open(whatsappUrl, '_blank', 'noopener');
+      const createdOrder = await global.ClientApi.createOrder({
+        customer_name: formData.name,
+        customer_phone: formData.phone,
+        delivery_type: formData.deliveryType,
+        address: formData.deliveryType === 'delivery' ? formData.address : null,
+        notes: formData.notes,
+        items: summary.items.map(function toPayloadItem(item) {
+          return {
+            product_id: item.id,
+            quantity: item.quantity
+          };
+        })
+      });
+
+      const message = buildWhatsappMessage({
+        ...formData,
+        orderId: createdOrder.order.id,
+        subtotal: createdOrder.order.subtotal,
+        deliveryFee: createdOrder.order.delivery_fee,
+        total: createdOrder.order.total
+      });
+      const whatsappUrl = 'https://wa.me/' + whatsappNumber + '?text=' + encodeURIComponent(message);
+
+      elements.checkoutHint.textContent = 'Pedido guardado. Abriendo WhatsApp...';
+      global.CartStore.clear();
+      window.location.href = whatsappUrl;
+    } catch (error) {
+      console.error('Error creating order from storefront:', error);
+      elements.checkoutHint.textContent = error.message || 'No se pudo guardar el pedido.';
+    } finally {
+      setCheckoutSubmitting(false);
+    }
   }
 
   function attachEvents() {
@@ -478,6 +517,7 @@
   function init() {
     attachEvents();
     updateAddressVisibility();
+    setCheckoutSubmitting(false);
     renderCart();
     loadData();
   }

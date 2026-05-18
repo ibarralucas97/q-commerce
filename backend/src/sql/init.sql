@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS settings (
 
 CREATE TABLE IF NOT EXISTS admin_users (
   id SERIAL PRIMARY KEY,
+  username VARCHAR(80) UNIQUE,
   full_name VARCHAR(120) NOT NULL,
   email VARCHAR(160) NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,

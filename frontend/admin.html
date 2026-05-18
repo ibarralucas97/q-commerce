@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin | Q-Commerce Template</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./assets/css/admin.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <section class="login-view" id="loginView">
+        <div class="login-card">
+          <p class="eyebrow">Admin</p>
+          <h1>Ingreso al panel</h1>
+          <p class="muted">
+            Usá tu usuario administrador para gestionar pedidos, productos, categorías y settings.
+          </p>
+
+          <form class="stack-form" id="loginForm">
+            <label class="field">
+              <span>Username</span>
+              <input id="loginUsername" type="text" autocomplete="username" placeholder="admin" required />
+            </label>
+
+            <label class="field">
+              <span>Password</span>
+              <input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••" required />
+            </label>
+
+            <p class="status-message" id="loginMessage"></p>
+
+            <button class="primary-button" id="loginButton" type="submit">
+              Ingresar
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <section class="panel-view is-hidden" id="panelView">
+        <header class="panel-header">
+          <div>
+            <p class="eyebrow">Q-Commerce Template</p>
+            <h1>Panel admin</h1>
+          </div>
+          <div class="header-actions">
+            <span class="muted" id="adminIdentity">Administrador</span>
+            <button class="ghost-button" id="logoutButton" type="button">Salir</button>
+          </div>
+        </header>
+
+        <nav class="tabs" id="adminTabs">
+          <button class="tab-button is-active" type="button" data-tab="orders">Pedidos</button>
+          <button class="tab-button" type="button" data-tab="products">Productos</button>
+          <button class="tab-button" type="button" data-tab="categories">Categorías</button>
+          <button class="tab-button" type="button" data-tab="settings">Settings</button>
+        </nav>
+
+        <p class="status-banner" id="panelMessage"></p>
+
+        <main class="panel-grid">
+          <section class="panel-section" data-section="orders">
+            <div class="section-header">
+              <div>
+                <p class="eyebrow">Orders</p>
+                <h2>Pedidos</h2>
+              </div>
+              <button class="secondary-button" id="refreshOrdersButton" type="button">Actualizar</button>
+            </div>
+
+            <div class="card-list" id="ordersList"></div>
+
+            <article class="detail-card is-hidden" id="orderDetailCard">
+              <div class="section-header">
+                <div>
+                  <p class="eyebrow">Detalle</p>
+                  <h3 id="orderDetailTitle">Pedido</h3>
+                </div>
+              </div>
+              <div class="detail-body" id="orderDetailBody"></div>
+            </article>
+          </section>
+
+          <section class="panel-section is-hidden" data-section="products">
+            <div class="section-header">
+              <div>
+                <p class="eyebrow">Catalogo</p>
+                <h2>Productos</h2>
+              </div>
+            </div>
+
+            <form class="editor-card" id="productForm">
+              <input id="productId" type="hidden" />
+              <div class="two-columns">
+                <label class="field">
+                  <span>Categoría</span>
+                  <select id="productCategoryId"></select>
+                </label>
+                <label class="field">
+                  <span>Nombre</span>
+                  <input id="productName" type="text" required />
+                </label>
+              </div>
+
+              <label class="field">
+                <span>Descripción</span>
+                <textarea id="productDescription" rows="3"></textarea>
+              </label>
+
+              <div class="two-columns">
+                <label class="field">
+                  <span>Precio</span>
+                  <input id="productPrice" type="number" min="0" step="0.01" required />
+                </label>
+                <label class="field">
+                  <span>Stock</span>
+                  <input id="productStock" type="number" min="0" step="1" />
+                </label>
+              </div>
+
+              <label class="field">
+                <span>Imagen URL</span>
+                <input id="productImageUrl" type="url" />
+              </label>
+
+              <label class="checkbox-field">
+                <input id="productIsActive" type="checkbox" checked />
+                <span>Producto activo</span>
+              </label>
+
+              <div class="form-actions">
+                <button class="primary-button" type="submit">Guardar producto</button>
+                <button class="ghost-button" id="resetProductFormButton" type="button">Nuevo</button>
+              </div>
+            </form>
+
+            <div class="card-list" id="productsList"></div>
+          </section>
+
+          <section class="panel-section is-hidden" data-section="categories">
+            <div class="section-header">
+              <div>
+                <p class="eyebrow">Taxonomía</p>
+                <h2>Categorías</h2>
+              </div>
+            </div>
+
+            <form class="editor-card" id="categoryForm">
+              <input id="categoryId" type="hidden" />
+
+              <label class="field">
+                <span>Nombre</span>
+                <input id="categoryName" type="text" required />
+              </label>
+
+              <label class="field">
+                <span>Descripción</span>
+                <textarea id="categoryDescription" rows="3"></textarea>
+              </label>
+
+              <label class="checkbox-field">
+                <input id="categoryIsActive" type="checkbox" checked />
+                <span>Categoría activa</span>
+              </label>
+
+              <div class="form-actions">
+                <button class="primary-button" type="submit">Guardar categoría</button>
+                <button class="ghost-button" id="resetCategoryFormButton" type="button">Nueva</button>
+              </div>
+            </form>
+
+            <div class="card-list" id="categoriesList"></div>
+          </section>
+
+          <section class="panel-section is-hidden" data-section="settings">
+            <div class="section-header">
+              <div>
+                <p class="eyebrow">Configuración</p>
+                <h2>Settings</h2>
+              </div>
+            </div>
+
+            <form class="editor-card" id="settingsForm">
+              <div class="two-columns">
+                <label class="field">
+                  <span>Nombre del negocio</span>
+                  <input id="settingsStoreName" type="text" required />
+                </label>
+                <label class="field">
+                  <span>WhatsApp</span>
+                  <input id="settingsWhatsapp" type="text" />
+                </label>
+              </div>
+
+              <label class="field">
+                <span>Descripción</span>
+                <textarea id="settingsDescription" rows="3"></textarea>
+              </label>
+
+              <div class="two-columns">
+                <label class="field">
+                  <span>Dirección</span>
+                  <input id="settingsAddress" type="text" />
+                </label>
+                <label class="field">
+                  <span>Zona</span>
+                  <input id="settingsZone" type="text" />
+                </label>
+              </div>
+
+              <div class="two-columns">
+                <label class="field">
+                  <span>Ciudad</span>
+                  <input id="settingsCity" type="text" />
+                </label>
+                <label class="field">
+                  <span>Moneda</span>
+                  <input id="settingsCurrency" type="text" />
+                </label>
+              </div>
+
+              <div class="two-columns">
+                <label class="field">
+                  <span>Delivery fee</span>
+                  <input id="settingsDeliveryFee" type="number" min="0" step="0.01" />
+                </label>
+                <label class="field">
+                  <span>Logo URL</span>
+                  <input id="settingsLogoUrl" type="url" />
+                </label>
+              </div>
+
+              <label class="field">
+                <span>Banner URL</span>
+                <input id="settingsBannerUrl" type="url" />
+              </label>
+
+              <div class="two-columns">
+                <label class="field">
+                  <span>Color primario</span>
+                  <input id="settingsPrimaryColor" type="text" />
+                </label>
+                <label class="field">
+                  <span>Color secundario</span>
+                  <input id="settingsSecondaryColor" type="text" />
+                </label>
+              </div>
+
+              <div class="three-columns">
+                <label class="checkbox-field">
+                  <input id="settingsDeliveryEnabled" type="checkbox" />
+                  <span>Delivery activo</span>
+                </label>
+                <label class="checkbox-field">
+                  <input id="settingsPickupEnabled" type="checkbox" />
+                  <span>Retiro activo</span>
+                </label>
+                <label class="checkbox-field">
+                  <input id="settingsIsActive" type="checkbox" />
+                  <span>Negocio activo</span>
+                </label>
+              </div>
+
+              <div class="form-actions">
+                <button class="primary-button" type="submit">Guardar settings</button>
+              </div>
+            </form>
+          </section>
+        </main>
+      </section>
+    </div>
+
+    <script src="./js/admin/adminAuth.js" defer></script>
+    <script src="./js/admin/adminApi.js" defer></script>
+    <script src="./js/admin/adminMain.js" defer></script>
+  </body>
+</html>
