@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Q-Commerce Template</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./assets/css/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero" id="hero">
+        <div class="hero__overlay"></div>
+        <div class="hero__content">
+          <div class="brand-row">
+            <div class="brand-mark">
+              <img id="brandLogo" alt="Logo del negocio" hidden />
+              <span id="brandInitials">QC</span>
+            </div>
+            <div>
+              <p class="eyebrow">Q-Commerce Template</p>
+              <h1 id="storeName">Cargando tienda...</h1>
+            </div>
+          </div>
+          <p class="hero__description" id="storeDescription">
+            Estamos preparando el catalogo.
+          </p>
+          <div class="hero__meta">
+            <span id="storeLocation">Ubicacion no disponible</span>
+            <span id="deliverySummary">Cargando entregas...</span>
+          </div>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="catalog-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Catalogo</p>
+              <h2>Elegí tus productos</h2>
+            </div>
+            <div class="catalog-summary">
+              <span id="productCount">0 productos</span>
+            </div>
+          </div>
+
+          <nav class="category-filters" id="categoryFilters" aria-label="Categorias"></nav>
+
+          <div class="status-card" id="catalogStatus">Cargando productos...</div>
+          <div class="product-grid" id="productGrid"></div>
+        </section>
+
+        <aside class="cart-panel" id="cartPanel" aria-label="Carrito">
+          <div class="cart-panel__header">
+            <div>
+              <p class="eyebrow">Pedido</p>
+              <h2>Tu carrito</h2>
+            </div>
+            <button class="ghost-button mobile-only" id="closeCartButton" type="button">
+              Cerrar
+            </button>
+          </div>
+
+          <div class="cart-items" id="cartItems"></div>
+
+          <div class="empty-cart" id="emptyCartMessage">
+            Agregá productos para preparar tu pedido.
+          </div>
+
+          <div class="cart-summary">
+            <div class="summary-row">
+              <span>Subtotal</span>
+              <strong id="subtotalAmount">ARS 0</strong>
+            </div>
+            <div class="summary-row">
+              <span>Delivery</span>
+              <strong id="deliveryAmount">ARS 0</strong>
+            </div>
+            <div class="summary-row summary-row--total">
+              <span>Total</span>
+              <strong id="totalAmount">ARS 0</strong>
+            </div>
+          </div>
+
+          <form class="checkout-form" id="checkoutForm">
+            <label class="field">
+              <span>Nombre</span>
+              <input id="customerName" name="customerName" type="text" placeholder="Tu nombre" required />
+            </label>
+
+            <label class="field">
+              <span>Telefono</span>
+              <input id="customerPhone" name="customerPhone" type="tel" placeholder="Tu WhatsApp" required />
+            </label>
+
+            <fieldset class="delivery-options">
+              <legend>Tipo de entrega</legend>
+              <label class="option-card">
+                <input type="radio" name="deliveryType" value="delivery" />
+                <span>Delivery</span>
+              </label>
+              <label class="option-card">
+                <input type="radio" name="deliveryType" value="pickup" />
+                <span>Retiro</span>
+              </label>
+            </fieldset>
+
+            <label class="field" id="addressField">
+              <span>Direccion</span>
+              <input id="customerAddress" name="customerAddress" type="text" placeholder="Calle, numero y referencia" />
+            </label>
+
+            <label class="field">
+              <span>Observaciones</span>
+              <textarea
+                id="customerNotes"
+                name="customerNotes"
+                rows="3"
+                placeholder="Aclaraciones para el pedido"
+              ></textarea>
+            </label>
+
+            <p class="form-hint" id="checkoutHint">
+              Completá tus datos para continuar por WhatsApp.
+            </p>
+
+            <button class="primary-button" id="checkoutButton" type="submit">
+              Pedir por WhatsApp
+            </button>
+          </form>
+        </aside>
+      </main>
+
+      <button class="floating-cart-button" id="floatingCartButton" type="button">
+        <span>Ver carrito</span>
+        <strong id="floatingCartCount">0</strong>
+      </button>
+    </div>
+
+    <script src="./js/api/clientApi.js" defer></script>
+    <script src="./js/client/cart.js" defer></script>
+    <script src="./js/client/main.js" defer></script>
+  </body>
+</html>
