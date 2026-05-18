@@ -115,6 +115,7 @@
     state.cartOpen = isOpen;
     elements.cartPanel.classList.toggle('is-open', isOpen);
     elements.floatingCartButton.classList.toggle('is-hidden', isOpen);
+    document.body.classList.toggle('cart-open', isOpen);
   }
 
   function setCheckoutSubmitting(isSubmitting) {
