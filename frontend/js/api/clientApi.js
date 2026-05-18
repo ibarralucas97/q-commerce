@@ -57,6 +57,9 @@
     getProducts() {
       return request('/api/products');
     },
+    getFulfillmentSchedules() {
+      return request('/api/fulfillment-schedules');
+    },
     createOrder(payload) {
       return requestJson('/api/orders', {
         method: 'POST',

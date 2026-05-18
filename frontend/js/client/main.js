@@ -3,9 +3,12 @@
     settings: null,
     categories: [],
     products: [],
+    fulfillmentSchedules: [],
     activeCategoryId: 'all',
     cartOpen: false,
-    isSubmittingOrder: false
+    isSubmittingOrder: false,
+    pendingProduct: null,
+    selectedOptionId: null
   };
 
   const elements = {
@@ -31,13 +34,25 @@
     customerPhone: document.getElementById('customerPhone'),
     customerAddress: document.getElementById('customerAddress'),
     customerNotes: document.getElementById('customerNotes'),
+    fulfillmentDay: document.getElementById('fulfillmentDay'),
+    fulfillmentTimeRange: document.getElementById('fulfillmentTimeRange'),
+    scheduleFields: document.getElementById('scheduleFields'),
     addressField: document.getElementById('addressField'),
     checkoutHint: document.getElementById('checkoutHint'),
     checkoutButton: document.getElementById('checkoutButton'),
     floatingCartButton: document.getElementById('floatingCartButton'),
     floatingCartCount: document.getElementById('floatingCartCount'),
-    closeCartButton: document.getElementById('closeCartButton')
+    closeCartButton: document.getElementById('closeCartButton'),
+    optionModal: document.getElementById('optionModal'),
+    optionModalBackdrop: document.getElementById('optionModalBackdrop'),
+    optionModalTitle: document.getElementById('optionModalTitle'),
+    optionModalDescription: document.getElementById('optionModalDescription'),
+    optionList: document.getElementById('optionList'),
+    optionModalHint: document.getElementById('optionModalHint'),
+    confirmOptionButton: document.getElementById('confirmOptionButton'),
+    closeOptionModalButton: document.getElementById('closeOptionModalButton')
   };
+  const DAY_NAMES = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
 
   function escapeHtml(value) {
     return String(value)
@@ -99,6 +114,7 @@
   function setCartOpen(isOpen) {
     state.cartOpen = isOpen;
     elements.cartPanel.classList.toggle('is-open', isOpen);
+    elements.floatingCartButton.classList.toggle('is-hidden', isOpen);
   }
 
   function setCheckoutSubmitting(isSubmitting) {
@@ -109,6 +125,109 @@
 
   function updateAddressVisibility() {
     elements.addressField.classList.toggle('is-hidden', !isDeliverySelected());
+  }
+
+  function hasSchedulesForSelectedFulfillment() {
+    return getFilteredSchedules().length > 0;
+  }
+
+  function getDayLabel(dayOfWeek) {
+    return DAY_NAMES[dayOfWeek] || '';
+  }
+
+  function formatScheduleTimeValue(value) {
+    return String(value).slice(0, 5);
+  }
+
+  function formatScheduleRange(schedule) {
+    return formatScheduleTimeValue(schedule.start_time) + ' - ' + formatScheduleTimeValue(schedule.end_time);
+  }
+
+  function getFilteredSchedules() {
+    const selectedType = getSelectedDeliveryType();
+
+    return state.fulfillmentSchedules.filter(function filterSchedule(schedule) {
+      return schedule.fulfillment_type === 'both' || schedule.fulfillment_type === selectedType;
+    });
+  }
+
+  function renderScheduleFields() {
+    const filteredSchedules = getFilteredSchedules();
+    const groupedSchedules = new Map();
+
+    filteredSchedules.forEach(function groupSchedule(schedule) {
+      const dayLabel = getDayLabel(schedule.day_of_week);
+      const existing = groupedSchedules.get(dayLabel) || [];
+
+      existing.push(schedule);
+      groupedSchedules.set(dayLabel, existing);
+    });
+
+    if (filteredSchedules.length === 0) {
+      elements.scheduleFields.classList.add('is-hidden');
+      elements.fulfillmentDay.innerHTML = '';
+      elements.fulfillmentTimeRange.innerHTML = '';
+      return;
+    }
+
+    elements.scheduleFields.classList.remove('is-hidden');
+    elements.fulfillmentDay.innerHTML = Array.from(groupedSchedules.keys())
+      .map(function toOption(dayLabel) {
+        return '<option value="' + escapeHtml(dayLabel) + '">' + escapeHtml(dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1)) + '</option>';
+      })
+      .join('');
+
+    renderScheduleTimeOptions();
+  }
+
+  function renderScheduleTimeOptions() {
+    const selectedDay = elements.fulfillmentDay.value;
+    const schedules = getFilteredSchedules().filter(function filterByDay(schedule) {
+      return getDayLabel(schedule.day_of_week) === selectedDay;
+    });
+
+    elements.fulfillmentTimeRange.innerHTML = schedules
+      .map(function toOption(schedule) {
+        const range = formatScheduleRange(schedule);
+
+        return '<option value="' + escapeHtml(range) + '">' + escapeHtml(range) + '</option>';
+      })
+      .join('');
+  }
+
+  function setOptionModalOpen(isOpen) {
+    elements.optionModal.classList.toggle('is-hidden', !isOpen);
+    document.body.classList.toggle('modal-open', isOpen);
+  }
+
+  function openOptionModal(product) {
+    state.pendingProduct = product;
+    state.selectedOptionId = null;
+    elements.optionModalTitle.textContent = product.name;
+    elements.optionModalDescription.textContent = product.description || 'Elegí la opción que corresponde para este producto.';
+    elements.optionModalHint.textContent = 'Seleccioná una opción para agregar el producto al carrito.';
+    elements.optionList.innerHTML = (product.options || []).map(function toOption(option) {
+      const priceModifier = Number(option.price_modifier) || 0;
+      const modifierLabel = priceModifier === 0 ? 'Sin cambio de precio' : (priceModifier > 0 ? '+' : '') + formatMoney(priceModifier);
+
+      return [
+        '<label class="option-choice">',
+        '  <input type="radio" name="productOption" value="' + option.id + '">',
+        '  <div>',
+        '    <strong>' + escapeHtml(option.name) + '</strong>',
+        '    <p>' + escapeHtml(option.description || modifierLabel) + '</p>',
+        '    <span>' + escapeHtml(modifierLabel) + '</span>',
+        '  </div>',
+        '</label>'
+      ].join('');
+    }).join('');
+    setOptionModalOpen(true);
+  }
+
+  function closeOptionModal() {
+    state.pendingProduct = null;
+    state.selectedOptionId = null;
+    setOptionModalOpen(false);
   }
 
   function renderHero() {
@@ -245,10 +364,11 @@
     const summary = global.CartStore.getSummary(state.settings ? state.settings.delivery_fee : 0, isDeliverySelected());
 
     elements.floatingCartCount.textContent = String(summary.itemCount);
+    elements.floatingCartButton.classList.toggle('is-hidden', state.cartOpen || summary.itemCount === 0);
     elements.subtotalAmount.textContent = formatMoney(summary.subtotal);
     elements.deliveryAmount.textContent = formatMoney(summary.delivery);
     elements.totalAmount.textContent = formatMoney(summary.total);
-    elements.checkoutButton.disabled = summary.itemCount === 0;
+    elements.checkoutButton.disabled = state.isSubmittingOrder || summary.itemCount === 0;
     elements.emptyCartMessage.classList.toggle('is-hidden', summary.itemCount > 0);
 
     if (summary.itemCount === 0) {
@@ -263,15 +383,15 @@
           '  <div class="cart-line__top">',
           '    <div>',
           '      <h3 class="cart-line__title">' + escapeHtml(item.name) + '</h3>',
-          '      <p class="cart-line__meta">' + escapeHtml(item.category_name || 'Sin categoria') + '</p>',
+          '      <p class="cart-line__meta">' + escapeHtml(item.category_name || 'Sin categoria') + (item.option_name ? ' · ' + escapeHtml(item.option_name) : '') + '</p>',
           '    </div>',
-          '    <button class="remove-button" type="button" aria-label="Eliminar producto" data-remove-product="' + item.id + '">×</button>',
+          '    <button class="remove-button" type="button" aria-label="Eliminar producto" data-remove-product="' + escapeHtml(item.line_id) + '">×</button>',
           '  </div>',
           '  <div class="cart-line__bottom">',
           '    <div class="qty-controls">',
-          '      <button class="qty-button" type="button" data-decrease-product="' + item.id + '">-</button>',
+          '      <button class="qty-button" type="button" data-decrease-product="' + escapeHtml(item.line_id) + '">-</button>',
           '      <strong>' + item.quantity + '</strong>',
-          '      <button class="qty-button" type="button" data-increase-product="' + item.id + '">+</button>',
+          '      <button class="qty-button" type="button" data-increase-product="' + escapeHtml(item.line_id) + '">+</button>',
           '    </div>',
           '    <strong>' + escapeHtml(formatMoney(item.price * item.quantity)) + '</strong>',
           '  </div>',
@@ -300,6 +420,7 @@
     }
 
     updateAddressVisibility();
+    renderScheduleFields();
   }
 
   function buildWhatsappMessage(formData) {
@@ -321,8 +442,15 @@
     lines.push('*Productos:*');
 
     summary.items.forEach(function appendItem(item) {
-      lines.push('- ' + item.quantity + ' x ' + item.name + ' (' + formatMoney(item.price * item.quantity) + ')');
+      const optionSuffix = item.option_name ? ' [' + item.option_name + ']' : '';
+
+      lines.push('- ' + item.quantity + ' x ' + item.name + optionSuffix + ' (' + formatMoney(item.price * item.quantity) + ')');
     });
+
+    if (formData.fulfillmentDay && formData.fulfillmentTimeRange) {
+      lines.push('*Día:* ' + formData.fulfillmentDay);
+      lines.push('*Horario:* ' + formData.fulfillmentTimeRange);
+    }
 
     lines.push('');
     lines.push('*Subtotal:* ' + formatMoney(formData.subtotal));
@@ -351,7 +479,9 @@
       phone: elements.customerPhone.value.trim(),
       deliveryType: getSelectedDeliveryType(),
       address: elements.customerAddress.value.trim(),
-      notes: elements.customerNotes.value.trim()
+      notes: elements.customerNotes.value.trim(),
+      fulfillmentDay: elements.fulfillmentDay.value,
+      fulfillmentTimeRange: elements.fulfillmentTimeRange.value
     };
 
     if (!formData.name) {
@@ -366,6 +496,11 @@
 
     if (formData.deliveryType === 'delivery' && !formData.address) {
       elements.checkoutHint.textContent = 'Ingresá la direccion para delivery.';
+      return;
+    }
+
+    if (hasSchedulesForSelectedFulfillment() && (!formData.fulfillmentDay || !formData.fulfillmentTimeRange)) {
+      elements.checkoutHint.textContent = 'Seleccioná día y horario para continuar.';
       return;
     }
 
@@ -386,9 +521,12 @@
         delivery_type: formData.deliveryType,
         address: formData.deliveryType === 'delivery' ? formData.address : null,
         notes: formData.notes,
+        fulfillment_day: formData.fulfillmentDay || null,
+        fulfillment_time_range: formData.fulfillmentTimeRange || null,
         items: summary.items.map(function toPayloadItem(item) {
           return {
             product_id: item.id,
+            product_option_id: item.option_id,
             quantity: item.quantity
           };
         })
@@ -399,7 +537,9 @@
         orderId: createdOrder.order.id,
         subtotal: createdOrder.order.subtotal,
         deliveryFee: createdOrder.order.delivery_fee,
-        total: createdOrder.order.total
+        total: createdOrder.order.total,
+        fulfillmentDay: formData.fulfillmentDay,
+        fulfillmentTimeRange: formData.fulfillmentTimeRange
       });
       const whatsappUrl = 'https://wa.me/' + whatsappNumber + '?text=' + encodeURIComponent(message);
 
@@ -443,7 +583,12 @@
         return;
       }
 
-      global.CartStore.add(product);
+      if (Array.isArray(product.options) && product.options.length > 0) {
+        openOptionModal(product);
+        return;
+      }
+
+      global.CartStore.add(product, null);
 
       if (window.innerWidth < 720) {
         setCartOpen(true);
@@ -456,15 +601,15 @@
       const removeButton = event.target.closest('[data-remove-product]');
 
       if (increaseButton) {
-        global.CartStore.increase(Number.parseInt(increaseButton.getAttribute('data-increase-product'), 10));
+        global.CartStore.increase(increaseButton.getAttribute('data-increase-product'));
       }
 
       if (decreaseButton) {
-        global.CartStore.decrease(Number.parseInt(decreaseButton.getAttribute('data-decrease-product'), 10));
+        global.CartStore.decrease(decreaseButton.getAttribute('data-decrease-product'));
       }
 
       if (removeButton) {
-        global.CartStore.remove(Number.parseInt(removeButton.getAttribute('data-remove-product'), 10));
+        global.CartStore.remove(removeButton.getAttribute('data-remove-product'));
       }
     });
 
@@ -472,9 +617,12 @@
     elements.checkoutForm.addEventListener('change', function onFormChange(event) {
       if (event.target.name === 'deliveryType') {
         updateAddressVisibility();
+        renderScheduleFields();
         renderCart();
       }
     });
+
+    elements.fulfillmentDay.addEventListener('change', renderScheduleTimeOptions);
 
     elements.floatingCartButton.addEventListener('click', function openCart() {
       setCartOpen(true);
@@ -483,6 +631,37 @@
     elements.closeCartButton.addEventListener('click', function closeCart() {
       setCartOpen(false);
     });
+
+    elements.optionList.addEventListener('change', function onOptionSelect(event) {
+      if (event.target.name === 'productOption') {
+        state.selectedOptionId = Number.parseInt(event.target.value, 10);
+      }
+    });
+
+    elements.confirmOptionButton.addEventListener('click', function confirmOption() {
+      if (!state.pendingProduct) {
+        return;
+      }
+
+      if (!state.selectedOptionId) {
+        elements.optionModalHint.textContent = 'Seleccioná una opción para continuar.';
+        return;
+      }
+
+      const selectedOption = state.pendingProduct.options.find(function findOption(option) {
+        return option.id === state.selectedOptionId;
+      });
+
+      global.CartStore.add(state.pendingProduct, selectedOption || null);
+      closeOptionModal();
+
+      if (window.innerWidth < 720) {
+        setCartOpen(true);
+      }
+    });
+
+    elements.closeOptionModalButton.addEventListener('click', closeOptionModal);
+    elements.optionModalBackdrop.addEventListener('click', closeOptionModal);
 
     global.CartStore.subscribe(function onCartUpdate() {
       renderCart();
@@ -494,17 +673,20 @@
       const data = await Promise.all([
         global.ClientApi.getSettings(),
         global.ClientApi.getCategories(),
-        global.ClientApi.getProducts()
+        global.ClientApi.getProducts(),
+        global.ClientApi.getFulfillmentSchedules()
       ]);
 
       state.settings = data[0];
       state.categories = data[1];
       state.products = data[2];
+      state.fulfillmentSchedules = data[3];
 
       renderHero();
       renderCategoryFilters();
       renderProducts();
       syncDeliveryOptions();
+      renderScheduleFields();
       renderCart();
       elements.catalogStatus.classList.add('is-hidden');
     } catch (error) {

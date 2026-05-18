@@ -87,6 +87,26 @@
         method: 'DELETE'
       });
     },
+    getProductOptions(productId) {
+      return request('/api/admin/products/' + productId + '/options');
+    },
+    createProductOption(productId, payload) {
+      return request('/api/admin/products/' + productId + '/options', {
+        method: 'POST',
+        body: payload
+      });
+    },
+    updateProductOption(optionId, payload) {
+      return request('/api/admin/product-options/' + optionId, {
+        method: 'PUT',
+        body: payload
+      });
+    },
+    deleteProductOption(optionId) {
+      return request('/api/admin/product-options/' + optionId, {
+        method: 'DELETE'
+      });
+    },
     getCategories() {
       return request('/api/admin/categories');
     },
@@ -117,6 +137,26 @@
       return request('/api/admin/settings', {
         method: 'PUT',
         body: payload
+      });
+    },
+    getFulfillmentSchedules() {
+      return request('/api/admin/fulfillment-schedules');
+    },
+    createFulfillmentSchedule(payload) {
+      return request('/api/admin/fulfillment-schedules', {
+        method: 'POST',
+        body: payload
+      });
+    },
+    updateFulfillmentSchedule(scheduleId, payload) {
+      return request('/api/admin/fulfillment-schedules/' + scheduleId, {
+        method: 'PUT',
+        body: payload
+      });
+    },
+    deleteFulfillmentSchedule(scheduleId) {
+      return request('/api/admin/fulfillment-schedules/' + scheduleId, {
+        method: 'DELETE'
       });
     }
   };

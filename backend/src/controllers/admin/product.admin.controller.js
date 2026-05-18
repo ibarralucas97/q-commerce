@@ -1,4 +1,5 @@
 const productAdminService = require('../../services/admin/product.admin.service');
+const productOptionAdminService = require('../../services/admin/product-option.admin.service');
 
 function normalizeCategoryId(categoryId) {
   if (categoryId === null || categoryId === undefined || categoryId === '') {
@@ -219,10 +220,95 @@ async function deleteProduct(req, res) {
   }
 }
 
+async function getProductOptions(req, res) {
+  try {
+    const productId = Number.parseInt(req.params.productId, 10);
+
+    if (Number.isNaN(productId)) {
+      return res.status(404).json({
+        error: 'product not found'
+      });
+    }
+
+    const product = await productAdminService.getProductById(productId);
+
+    if (!product) {
+      return res.status(404).json({
+        error: 'product not found'
+      });
+    }
+
+    const options = await productOptionAdminService.getOptionsByProductId(productId);
+
+    return res.json(options);
+  } catch (error) {
+    console.error('Error fetching admin product options:', error);
+
+    return res.status(500).json({
+      error: 'internal server error'
+    });
+  }
+}
+
+async function createProductOption(req, res) {
+  try {
+    const productId = Number.parseInt(req.params.productId, 10);
+    const name = req.body && typeof req.body.name === 'string' ? req.body.name.trim() : '';
+    const description = req.body && typeof req.body.description === 'string' ? req.body.description.trim() : null;
+    const priceModifier = Number(req.body && req.body.price_modifier !== undefined ? req.body.price_modifier : 0);
+    const isRequired = req.body && typeof req.body.is_required === 'boolean' ? req.body.is_required : false;
+    const isActive = req.body && typeof req.body.is_active === 'boolean' ? req.body.is_active : true;
+
+    if (Number.isNaN(productId)) {
+      return res.status(404).json({
+        error: 'product not found'
+      });
+    }
+
+    if (name === '') {
+      return res.status(400).json({
+        error: 'name is required'
+      });
+    }
+
+    if (!Number.isFinite(priceModifier)) {
+      return res.status(400).json({
+        error: 'price_modifier must be a valid number'
+      });
+    }
+
+    const product = await productAdminService.getProductById(productId);
+
+    if (!product) {
+      return res.status(404).json({
+        error: 'product not found'
+      });
+    }
+
+    const option = await productOptionAdminService.createProductOption(productId, {
+      name: name,
+      description: description,
+      price_modifier: priceModifier,
+      is_required: isRequired,
+      is_active: isActive
+    });
+
+    return res.status(201).json(option);
+  } catch (error) {
+    console.error('Error creating admin product option:', error);
+
+    return res.status(500).json({
+      error: 'internal server error'
+    });
+  }
+}
+
 module.exports = {
   getProducts,
   getProductById,
   createProduct,
   updateProduct,
-  deleteProduct
+  deleteProduct,
+  getProductOptions,
+  createProductOption
 };

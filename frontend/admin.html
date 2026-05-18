@@ -58,6 +58,7 @@
           <button class="tab-button is-active" type="button" data-tab="orders">Pedidos</button>
           <button class="tab-button" type="button" data-tab="products">Productos</button>
           <button class="tab-button" type="button" data-tab="categories">Categorías</button>
+          <button class="tab-button" type="button" data-tab="schedules">Horarios</button>
           <button class="tab-button" type="button" data-tab="settings">Settings</button>
         </nav>
 
@@ -139,6 +140,55 @@
               </div>
             </form>
 
+            <article class="editor-card">
+              <div class="section-header">
+                <div>
+                  <p class="eyebrow">Opciones</p>
+                  <h3>Opciones del producto</h3>
+                </div>
+              </div>
+
+              <form class="stack-form" id="productOptionForm">
+                <input id="productOptionId" type="hidden" />
+                <p class="muted" id="productOptionContext">
+                  Seleccioná un producto para gestionar sus opciones.
+                </p>
+
+                <label class="field">
+                  <span>Nombre</span>
+                  <input id="productOptionName" type="text" />
+                </label>
+
+                <label class="field">
+                  <span>Descripción</span>
+                  <textarea id="productOptionDescription" rows="3"></textarea>
+                </label>
+
+                <div class="two-columns">
+                  <label class="field">
+                    <span>Modificador de precio</span>
+                    <input id="productOptionPriceModifier" type="number" step="0.01" />
+                  </label>
+                  <label class="checkbox-field">
+                    <input id="productOptionIsRequired" type="checkbox" />
+                    <span>Opción requerida</span>
+                  </label>
+                </div>
+
+                <label class="checkbox-field">
+                  <input id="productOptionIsActive" type="checkbox" checked />
+                  <span>Opción activa</span>
+                </label>
+
+                <div class="form-actions">
+                  <button class="primary-button" type="submit">Guardar opción</button>
+                  <button class="ghost-button" id="resetProductOptionFormButton" type="button">Nueva</button>
+                </div>
+              </form>
+
+              <div class="card-list" id="productOptionsList"></div>
+            </article>
+
             <div class="card-list" id="productsList"></div>
           </section>
 
@@ -175,6 +225,66 @@
             </form>
 
             <div class="card-list" id="categoriesList"></div>
+          </section>
+
+          <section class="panel-section is-hidden" data-section="schedules">
+            <div class="section-header">
+              <div>
+                <p class="eyebrow">Disponibilidad</p>
+                <h2>Horarios</h2>
+              </div>
+            </div>
+
+            <form class="editor-card" id="scheduleForm">
+              <input id="scheduleId" type="hidden" />
+
+              <div class="two-columns">
+                <label class="field">
+                  <span>Día</span>
+                  <select id="scheduleDayOfWeek">
+                    <option value="0">Domingo</option>
+                    <option value="1">Lunes</option>
+                    <option value="2">Martes</option>
+                    <option value="3">Miércoles</option>
+                    <option value="4">Jueves</option>
+                    <option value="5">Viernes</option>
+                    <option value="6">Sábado</option>
+                  </select>
+                </label>
+
+                <label class="field">
+                  <span>Tipo</span>
+                  <select id="scheduleFulfillmentType">
+                    <option value="delivery">Delivery</option>
+                    <option value="pickup">Pickup</option>
+                    <option value="both">Both</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="two-columns">
+                <label class="field">
+                  <span>Hora inicio</span>
+                  <input id="scheduleStartTime" type="time" required />
+                </label>
+                <label class="field">
+                  <span>Hora fin</span>
+                  <input id="scheduleEndTime" type="time" required />
+                </label>
+              </div>
+
+              <label class="checkbox-field">
+                <input id="scheduleIsActive" type="checkbox" checked />
+                <span>Horario activo</span>
+              </label>
+
+              <div class="form-actions">
+                <button class="primary-button" type="submit">Guardar horario</button>
+                <button class="ghost-button" id="resetScheduleFormButton" type="button">Nuevo</button>
+              </div>
+            </form>
+
+            <div class="card-list" id="schedulesList"></div>
           </section>
 
           <section class="panel-section is-hidden" data-section="settings">

@@ -57,18 +57,26 @@
       };
     }
 
-    function add(product) {
+    function buildLineId(productId, optionId) {
+      return String(productId) + ':' + (optionId == null ? 'base' : String(optionId));
+    }
+
+    function add(product, selectedOption) {
+      const lineId = buildLineId(product.id, selectedOption ? selectedOption.id : null);
       const existingItem = items.find(function findItem(item) {
-        return item.id === product.id;
+        return item.line_id === lineId;
       });
 
       if (existingItem) {
         existingItem.quantity += 1;
       } else {
         items = items.concat({
+          line_id: lineId,
           id: product.id,
           name: product.name,
-          price: parsePrice(product.price),
+          option_id: selectedOption ? selectedOption.id : null,
+          option_name: selectedOption ? selectedOption.name : null,
+          price: parsePrice(product.price) + parsePrice(selectedOption ? selectedOption.price_modifier : 0),
           image_url: product.image_url || null,
           category_name: product.category_name || null,
           quantity: 1
@@ -78,9 +86,9 @@
       notify();
     }
 
-    function increase(productId) {
+    function increase(lineId) {
       items = items.map(function increaseItem(item) {
-        if (item.id !== productId) {
+        if (item.line_id !== lineId) {
           return item;
         }
 
@@ -93,10 +101,10 @@
       notify();
     }
 
-    function decrease(productId) {
+    function decrease(lineId) {
       items = items
         .map(function decreaseItem(item) {
-          if (item.id !== productId) {
+          if (item.line_id !== lineId) {
             return item;
           }
 
@@ -112,9 +120,9 @@
       notify();
     }
 
-    function remove(productId) {
+    function remove(lineId) {
       items = items.filter(function filterItem(item) {
-        return item.id !== productId;
+        return item.line_id !== lineId;
       });
 
       notify();

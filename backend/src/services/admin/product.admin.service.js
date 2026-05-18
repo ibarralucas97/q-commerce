@@ -36,6 +36,17 @@ async function getProductById(productId) {
   return result.rows[0] || null;
 }
 
+async function productExists(productId) {
+  const result = await pool.query(`
+    SELECT id
+    FROM products
+    WHERE id = $1
+    LIMIT 1
+  `, [productId]);
+
+  return result.rowCount > 0;
+}
+
 async function categoryExists(categoryId) {
   if (categoryId === null) {
     return true;
@@ -131,6 +142,7 @@ async function softDeleteProduct(productId) {
 module.exports = {
   getProducts,
   getProductById,
+  productExists,
   categoryExists,
   createProduct,
   updateProduct,

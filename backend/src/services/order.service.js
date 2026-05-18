@@ -1,6 +1,7 @@
 const pool = require('../config/db');
 
 const DELIVERY_TYPES = ['delivery', 'pickup'];
+const DAY_LABELS = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
 
 function toNumber(value) {
   const parsed = Number.parseFloat(value);
@@ -22,8 +23,26 @@ function formatOrderSummary(row) {
     status: normalizeStatusForResponse(row.status),
     subtotal: toNumber(row.subtotal),
     delivery_fee: toNumber(row.delivery_fee),
-    total: toNumber(row.total)
+    total: toNumber(row.total),
+    fulfillment_day: row.fulfillment_day || null,
+    fulfillment_time_range: row.fulfillment_time_range || null
   };
+}
+
+function getDayLabel(dayOfWeek) {
+  return DAY_LABELS[dayOfWeek] || '';
+}
+
+function normalizeTimeValue(value) {
+  return String(value).slice(0, 5);
+}
+
+function formatTimeRange(startTime, endTime) {
+  return normalizeTimeValue(startTime) + ' - ' + normalizeTimeValue(endTime);
+}
+
+function supportsFulfillmentType(scheduleType, deliveryType) {
+  return scheduleType === 'both' || scheduleType === deliveryType;
 }
 
 function validateOrderPayload(payload) {
@@ -52,6 +71,10 @@ function validateOrderPayload(payload) {
       return 'each item must include a valid product_id';
     }
 
+    if (item.product_option_id !== undefined && item.product_option_id !== null && (!Number.isInteger(item.product_option_id) || item.product_option_id <= 0)) {
+      return 'product_option_id must be a valid integer when provided';
+    }
+
     if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
       return 'each item quantity must be an integer greater than 0';
     }
@@ -64,13 +87,16 @@ function normalizeItems(items) {
   const itemMap = new Map();
 
   for (const item of items) {
-    const existing = itemMap.get(item.product_id);
+    const optionKey = item.product_option_id === null || item.product_option_id === undefined ? 'no-option' : String(item.product_option_id);
+    const itemKey = item.product_id + ':' + optionKey;
+    const existing = itemMap.get(itemKey);
 
     if (existing) {
       existing.quantity += item.quantity;
     } else {
-      itemMap.set(item.product_id, {
+      itemMap.set(itemKey, {
         product_id: item.product_id,
+        product_option_id: item.product_option_id ?? null,
         quantity: item.quantity
       });
     }
@@ -104,6 +130,65 @@ async function getProductsForOrder(client, productIds) {
     FROM products
     WHERE id = ANY($1::int[])
   `, [productIds]);
+
+  return result.rows;
+}
+
+async function getProductOptionsForOrder(client, productOptionIds) {
+  if (productOptionIds.length === 0) {
+    return [];
+  }
+
+  const result = await client.query(`
+    SELECT
+      id,
+      product_id,
+      name,
+      price_modifier,
+      is_required,
+      is_active
+    FROM product_options
+    WHERE id = ANY($1::int[])
+  `, [productOptionIds]);
+
+  return result.rows;
+}
+
+async function getActiveProductOptionsByProductIds(client, productIds) {
+  if (productIds.length === 0) {
+    return [];
+  }
+
+  const result = await client.query(`
+    SELECT
+      id,
+      product_id,
+      name,
+      description,
+      price_modifier,
+      is_required,
+      is_active
+    FROM product_options
+    WHERE product_id = ANY($1::int[])
+      AND is_active = true
+  `, [productIds]);
+
+  return result.rows;
+}
+
+async function getFulfillmentSchedules(client) {
+  const result = await client.query(`
+    SELECT
+      id,
+      day_of_week,
+      start_time,
+      end_time,
+      fulfillment_type,
+      is_active
+    FROM fulfillment_schedules
+    WHERE is_active = true
+    ORDER BY day_of_week ASC, start_time ASC
+  `);
 
   return result.rows;
 }
@@ -156,6 +241,13 @@ async function createOrder(payload) {
     const productIds = normalizedItems.map(function mapProductId(item) {
       return item.product_id;
     });
+    const productOptionIds = normalizedItems
+      .map(function mapOptionId(item) {
+        return item.product_option_id;
+      })
+      .filter(function onlyOptionId(optionId) {
+        return optionId !== null;
+      });
     const products = await getProductsForOrder(client, productIds);
 
     if (products.length !== productIds.length) {
@@ -170,6 +262,12 @@ async function createOrder(payload) {
     const productMap = new Map(products.map(function toEntry(product) {
       return [product.id, product];
     }));
+    const selectedOptions = await getProductOptionsForOrder(client, productOptionIds);
+    const optionMap = new Map(selectedOptions.map(function toEntry(option) {
+      return [option.id, option];
+    }));
+    const activeProductOptions = await getActiveProductOptionsByProductIds(client, productIds);
+    const schedules = await getFulfillmentSchedules(client);
 
     for (const item of normalizedItems) {
       const product = productMap.get(item.product_id);
@@ -182,16 +280,85 @@ async function createOrder(payload) {
           statusCode: 400
         };
       }
+
+      const productOptions = activeProductOptions.filter(function filterOption(option) {
+        return option.product_id === item.product_id && option.is_active === true;
+      });
+      const requiredOptionExists = productOptions.some(function isRequiredOption(option) {
+        return option.is_required === true;
+      });
+
+      if (requiredOptionExists && item.product_option_id === null) {
+        await client.query('ROLLBACK');
+
+        return {
+          error: 'product option is required for one or more items',
+          statusCode: 400
+        };
+      }
+
+      if (item.product_option_id !== null) {
+        const selectedOption = optionMap.get(item.product_option_id);
+
+        if (!selectedOption || selectedOption.product_id !== item.product_id || selectedOption.is_active === false) {
+          await client.query('ROLLBACK');
+
+          return {
+            error: 'one or more product options are invalid',
+            statusCode: 400
+          };
+        }
+      }
+    }
+
+    if (schedules.length > 0) {
+      if (typeof payload.fulfillment_day !== 'string' || payload.fulfillment_day.trim() === '') {
+        await client.query('ROLLBACK');
+
+        return {
+          error: 'fulfillment_day is required when schedules are configured',
+          statusCode: 400
+        };
+      }
+
+      if (typeof payload.fulfillment_time_range !== 'string' || payload.fulfillment_time_range.trim() === '') {
+        await client.query('ROLLBACK');
+
+        return {
+          error: 'fulfillment_time_range is required when schedules are configured',
+          statusCode: 400
+        };
+      }
+
+      const normalizedFulfillmentDay = payload.fulfillment_day.trim().toLowerCase();
+      const normalizedFulfillmentTimeRange = payload.fulfillment_time_range.trim();
+      const validSchedule = schedules.find(function findSchedule(schedule) {
+        return getDayLabel(schedule.day_of_week) === normalizedFulfillmentDay
+          && formatTimeRange(schedule.start_time, schedule.end_time) === normalizedFulfillmentTimeRange
+          && supportsFulfillmentType(schedule.fulfillment_type, payload.delivery_type);
+      });
+
+      if (!validSchedule) {
+        await client.query('ROLLBACK');
+
+        return {
+          error: 'selected fulfillment schedule is invalid',
+          statusCode: 400
+        };
+      }
     }
 
     const orderItems = normalizedItems.map(function buildItem(item) {
       const product = productMap.get(item.product_id);
-      const unitPrice = toNumber(product.price);
+      const selectedOption = item.product_option_id === null ? null : optionMap.get(item.product_option_id);
+      const unitPrice = toNumber(product.price) + (selectedOption ? toNumber(selectedOption.price_modifier) : 0);
       const subtotal = unitPrice * item.quantity;
 
       return {
         product_id: product.id,
+        product_option_id: selectedOption ? selectedOption.id : null,
         product_name: product.name,
+        product_option_name: selectedOption ? selectedOption.name : null,
         quantity: item.quantity,
         unit_price: unitPrice,
         subtotal: subtotal
@@ -211,6 +378,8 @@ async function createOrder(payload) {
         delivery_type,
         address,
         notes,
+        fulfillment_day,
+        fulfillment_time_range,
         status,
         subtotal,
         delivery_fee,
@@ -218,14 +387,16 @@ async function createOrder(payload) {
         created_at,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
-      RETURNING id, status, subtotal, delivery_fee, total
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+      RETURNING id, status, subtotal, delivery_fee, total, fulfillment_day, fulfillment_time_range
     `, [
       payload.customer_name.trim(),
       payload.customer_phone.trim(),
       payload.delivery_type,
       payload.delivery_type === 'delivery' ? payload.address.trim() : null,
       typeof payload.notes === 'string' && payload.notes.trim() !== '' ? payload.notes.trim() : null,
+      typeof payload.fulfillment_day === 'string' && payload.fulfillment_day.trim() !== '' ? payload.fulfillment_day.trim() : null,
+      typeof payload.fulfillment_time_range === 'string' && payload.fulfillment_time_range.trim() !== '' ? payload.fulfillment_time_range.trim() : null,
       mapRequestedStatusToDb('new'),
       subtotal,
       deliveryFee,
@@ -239,17 +410,21 @@ async function createOrder(payload) {
         INSERT INTO order_items (
           order_id,
           product_id,
+          product_option_id,
           product_name,
+          product_option_name,
           quantity,
           unit_price,
           subtotal,
           created_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
       `, [
         order.id,
         item.product_id,
+        item.product_option_id,
         item.product_name,
+        item.product_option_name,
         item.quantity,
         item.unit_price,
         item.subtotal

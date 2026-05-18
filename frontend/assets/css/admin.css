@@ -38,7 +38,7 @@ button {
 
 .admin-shell {
   min-height: 100vh;
-  padding: 1rem;
+  padding: 0.8rem;
 }
 
 .login-view,
@@ -69,7 +69,7 @@ button {
 
 .login-card {
   width: min(100%, 420px);
-  padding: 1.5rem;
+  padding: 1.2rem;
 }
 
 .eyebrow {
@@ -108,7 +108,7 @@ button {
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
-  padding: 0.95rem 1rem;
+  padding: 0.82rem 0.9rem;
 }
 
 .checkbox-field {
@@ -128,7 +128,7 @@ button {
 .status-action {
   border: 0;
   border-radius: 999px;
-  padding: 0.9rem 1rem;
+  padding: 0.78rem 0.92rem;
   transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
@@ -155,7 +155,7 @@ button {
 }
 
 .panel-header {
-  padding: 1.2rem 1.25rem;
+  padding: 1rem 1rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -204,7 +204,7 @@ button {
 }
 
 .panel-section {
-  padding: 1.1rem;
+  padding: 0.95rem;
 }
 
 .section-header,
@@ -224,7 +224,7 @@ button {
 }
 
 .editor-card {
-  padding: 1rem;
+  padding: 0.9rem;
   margin: 1rem 0;
 }
 
@@ -237,7 +237,7 @@ button {
 .order-card,
 .list-card,
 .detail-card {
-  padding: 1rem;
+  padding: 0.9rem;
 }
 
 .order-meta,
@@ -268,11 +268,42 @@ button {
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
-  padding: 0.7rem 0.85rem;
+  padding: 0.62rem 0.75rem;
 }
 
 .is-hidden {
   display: none !important;
+}
+
+@media (max-width: 719px) {
+  .panel-header,
+  .section-header,
+  .card-actions,
+  .list-row,
+  .order-card__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .tabs {
+    gap: 0.55rem;
+  }
+
+  .tab-button {
+    padding-inline: 0.85rem;
+    font-size: 0.92rem;
+  }
+
+  .order-meta,
+  .list-meta,
+  .muted {
+    font-size: 0.9rem;
+  }
 }
 
 @media (min-width: 720px) {

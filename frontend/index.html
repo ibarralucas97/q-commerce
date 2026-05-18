@@ -115,6 +115,18 @@
               <input id="customerAddress" name="customerAddress" type="text" placeholder="Calle, numero y referencia" />
             </label>
 
+            <div class="schedule-fields is-hidden" id="scheduleFields">
+              <label class="field">
+                <span>Día de entrega o retiro</span>
+                <select id="fulfillmentDay"></select>
+              </label>
+
+              <label class="field">
+                <span>Horario disponible</span>
+                <select id="fulfillmentTimeRange"></select>
+              </label>
+            </div>
+
             <label class="field">
               <span>Observaciones</span>
               <textarea
@@ -140,6 +152,27 @@
         <span>Ver carrito</span>
         <strong id="floatingCartCount">0</strong>
       </button>
+
+      <div class="option-modal is-hidden" id="optionModal">
+        <div class="option-modal__backdrop" id="optionModalBackdrop"></div>
+        <div class="option-modal__card" role="dialog" aria-modal="true" aria-labelledby="optionModalTitle">
+          <div class="option-modal__header">
+            <div>
+              <p class="eyebrow">Opción</p>
+              <h2 id="optionModalTitle">Elegí una opción</h2>
+            </div>
+            <button class="ghost-button" id="closeOptionModalButton" type="button">Cerrar</button>
+          </div>
+
+          <p class="form-hint" id="optionModalDescription"></p>
+          <div class="option-list" id="optionList"></div>
+          <p class="form-hint" id="optionModalHint"></p>
+
+          <div class="form-actions">
+            <button class="primary-button" id="confirmOptionButton" type="button">Agregar al carrito</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script src="./js/api/clientApi.js" defer></script>

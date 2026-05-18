@@ -9,10 +9,13 @@ const settingsRoutes = require('./routes/settings.routes');
 const categoryRoutes = require('./routes/category.routes');
 const productRoutes = require('./routes/product.routes');
 const orderRoutes = require('./routes/order.routes');
+const fulfillmentScheduleRoutes = require('./routes/fulfillment-schedule.routes');
 const adminSettingsRoutes = require('./routes/admin/settings.admin.routes');
 const adminCategoryRoutes = require('./routes/admin/category.admin.routes');
 const adminProductRoutes = require('./routes/admin/product.admin.routes');
+const adminProductOptionRoutes = require('./routes/admin/product-option.admin.routes');
 const adminOrderRoutes = require('./routes/admin/order.admin.routes');
+const adminFulfillmentScheduleRoutes = require('./routes/admin/fulfillment-schedule.admin.routes');
 
 const app = express();
 const frontendPath = path.resolve(__dirname, '../../frontend');
@@ -26,10 +29,13 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/fulfillment-schedules', fulfillmentScheduleRoutes);
 app.use('/api/admin/settings', authenticateAdmin, adminSettingsRoutes);
 app.use('/api/admin/categories', authenticateAdmin, adminCategoryRoutes);
 app.use('/api/admin/products', authenticateAdmin, adminProductRoutes);
+app.use('/api/admin/product-options', authenticateAdmin, adminProductOptionRoutes);
 app.use('/api/admin/orders', authenticateAdmin, adminOrderRoutes);
+app.use('/api/admin/fulfillment-schedules', authenticateAdmin, adminFulfillmentScheduleRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({

@@ -51,14 +51,14 @@ button {
 
 .page-shell {
   min-height: 100vh;
-  padding-bottom: 6rem;
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
 }
 
 .hero {
   position: relative;
   overflow: hidden;
-  min-height: 420px;
-  padding: 1.25rem 1rem 2.5rem;
+  min-height: clamp(280px, 58vh, 420px);
+  padding: 1rem 0.95rem 2rem;
   display: flex;
   align-items: flex-end;
   background:
@@ -85,14 +85,14 @@ button {
 
 .brand-row {
   display: flex;
-  gap: 1rem;
+  gap: 0.75rem;
   align-items: center;
 }
 
 .brand-mark {
-  width: 68px;
-  height: 68px;
-  border-radius: 22px;
+  width: clamp(52px, 15vw, 68px);
+  height: clamp(52px, 15vw, 68px);
+  border-radius: 18px;
   overflow: hidden;
   display: grid;
   place-items: center;
@@ -125,15 +125,16 @@ button {
 }
 
 .hero h1 {
-  font-size: clamp(2rem, 5vw, 4rem);
+  font-size: clamp(1.65rem, 7vw, 4rem);
   max-width: 12ch;
 }
 
 .hero__description {
   max-width: 44rem;
-  margin: 1rem 0 0;
+  margin: 0.8rem 0 0;
+  font-size: clamp(0.95rem, 3.5vw, 1.05rem);
   color: rgba(255, 255, 255, 0.84);
-  line-height: 1.65;
+  line-height: 1.55;
 }
 
 .hero__meta {
@@ -144,20 +145,20 @@ button {
 }
 
 .hero__meta span {
-  padding: 0.75rem 1rem;
+  padding: 0.65rem 0.85rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: rgba(255, 255, 255, 0.9);
-  font-size: 0.92rem;
+  font-size: 0.84rem;
 }
 
 .layout {
   width: min(100%, var(--container));
-  margin: -1.6rem auto 0;
-  padding: 0 1rem;
+  margin: -1.2rem auto 0;
+  padding: 0 0.8rem;
   display: grid;
-  gap: 1.25rem;
+  gap: 1rem;
 }
 
 .catalog-panel,
@@ -170,7 +171,7 @@ button {
 }
 
 .catalog-panel {
-  padding: 1.25rem;
+  padding: 1rem;
 }
 
 .section-heading,
@@ -212,7 +213,8 @@ button {
   background: var(--bg-soft);
   color: var(--text);
   border-radius: 999px;
-  padding: 0.8rem 1rem;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.92rem;
 }
 
 .filter-chip.is-active {
@@ -221,7 +223,7 @@ button {
 }
 
 .status-card {
-  padding: 1rem 1.1rem;
+  padding: 0.9rem 1rem;
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
@@ -235,8 +237,8 @@ button {
 
 .product-card {
   display: grid;
-  gap: 1rem;
-  padding: 1rem;
+  gap: 0.85rem;
+  padding: 0.9rem;
   border-radius: var(--radius-lg);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.025));
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -266,27 +268,29 @@ button {
 }
 
 .product-card__title {
-  font-size: 1.1rem;
+  font-size: clamp(1rem, 4vw, 1.1rem);
   margin: 0.2rem 0 0;
 }
 
 .product-card__description {
   margin: 0.65rem 0 0;
-  line-height: 1.55;
-  min-height: 3.2em;
+  line-height: 1.5;
+  min-height: auto;
+  font-size: 0.94rem;
 }
 
 .price-pill {
   flex-shrink: 0;
-  padding: 0.6rem 0.85rem;
+  padding: 0.52rem 0.75rem;
   border-radius: 999px;
   background: rgba(244, 215, 161, 0.12);
   color: var(--secondary);
   font-weight: 700;
+  font-size: 0.88rem;
 }
 
 .stock-pill {
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   padding: 0.4rem 0.65rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
@@ -297,7 +301,7 @@ button {
 .ghost-button {
   border: 0;
   border-radius: 999px;
-  padding: 0.95rem 1rem;
+  padding: 0.82rem 0.95rem;
   transition: transform 0.2s ease, opacity 0.2s ease, background 0.2s ease;
 }
 
@@ -328,11 +332,11 @@ button {
   position: fixed;
   inset: auto 0 0 0;
   z-index: 20;
-  padding: 1rem;
+  padding: 0.9rem 0.9rem calc(1rem + env(safe-area-inset-bottom, 0px));
   border-radius: 24px 24px 0 0;
   transform: translateY(calc(100% - 84px));
   transition: transform 0.28s ease;
-  max-height: 88vh;
+  max-height: min(88vh, 760px);
   overflow: auto;
 }
 
@@ -348,10 +352,13 @@ button {
   display: grid;
   gap: 0.85rem;
   margin-top: 1rem;
+  max-height: 34vh;
+  overflow: auto;
+  padding-right: 0.15rem;
 }
 
 .cart-line {
-  padding: 0.95rem;
+  padding: 0.85rem;
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.045);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -366,12 +373,12 @@ button {
 
 .cart-line__title {
   margin: 0;
-  font-size: 0.98rem;
+  font-size: 0.94rem;
 }
 
 .cart-line__meta {
   margin: 0.3rem 0 0;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
 }
 
 .qty-controls {
@@ -382,8 +389,8 @@ button {
 
 .qty-button,
 .remove-button {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.05);
@@ -396,14 +403,14 @@ button {
 
 .empty-cart {
   margin: 1rem 0;
-  padding: 1rem;
+  padding: 0.9rem;
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.04);
 }
 
 .cart-summary {
   margin-top: 1rem;
-  padding: 1rem;
+  padding: 0.9rem;
   border-radius: var(--radius-md);
   background: rgba(0, 0, 0, 0.18);
   border: 1px solid var(--border);
@@ -435,13 +442,14 @@ button {
 }
 
 .field input,
-.field textarea {
+.field textarea,
+.field select {
   width: 100%;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
-  padding: 0.95rem 1rem;
+  padding: 0.82rem 0.95rem;
 }
 
 .field input::placeholder,
@@ -465,7 +473,7 @@ button {
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  padding: 0.9rem 1rem;
+  padding: 0.8rem 0.9rem;
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
@@ -478,14 +486,14 @@ button {
 .floating-cart-button {
   position: fixed;
   right: 1rem;
-  bottom: 1rem;
+  bottom: calc(0.9rem + env(safe-area-inset-bottom, 0px));
   z-index: 30;
   display: inline-flex;
   align-items: center;
   gap: 0.8rem;
   border: 0;
   border-radius: 999px;
-  padding: 0.95rem 1.1rem;
+  padding: 0.82rem 1rem;
   background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary), black 18%));
   color: white;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32);
@@ -502,6 +510,96 @@ button {
 
 .is-hidden {
   display: none !important;
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+.schedule-fields {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.option-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: end center;
+}
+
+.option-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.68);
+}
+
+.option-modal__card {
+  position: relative;
+  width: min(100%, 560px);
+  margin: 0;
+  padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+  border-radius: 22px 22px 0 0;
+  background: rgba(23, 25, 27, 0.96);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  max-height: 88vh;
+  overflow: auto;
+}
+
+.option-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.option-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.option-choice {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.85rem;
+  align-items: start;
+  padding: 0.9rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+}
+
+.option-choice input {
+  margin-top: 0.15rem;
+  accent-color: var(--primary);
+}
+
+.option-choice p,
+.option-choice span {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 719px) {
+  .section-heading,
+  .cart-panel__header,
+  .product-card__title-row,
+  .product-card__footer,
+  .cart-line__top,
+  .cart-line__bottom {
+    align-items: flex-start;
+  }
+
+  .section-heading,
+  .product-card__title-row,
+  .product-card__footer,
+  .cart-line__bottom {
+    flex-direction: column;
+  }
 }
 
 @media (min-width: 720px) {
@@ -533,9 +631,23 @@ button {
     max-height: calc(100vh - 3rem);
   }
 
+  .cart-items {
+    max-height: none;
+  }
+
   .mobile-only,
   .floating-cart-button {
     display: none;
+  }
+
+  .option-modal {
+    place-items: center;
+  }
+
+  .option-modal__card {
+    border-radius: 24px;
+    margin: 1rem;
+    padding: 1.2rem;
   }
 }
 

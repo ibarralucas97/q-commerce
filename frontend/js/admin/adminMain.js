@@ -3,9 +3,12 @@
     activeTab: 'orders',
     orders: [],
     products: [],
+    productOptions: [],
     categories: [],
+    schedules: [],
     settings: null,
-    selectedOrderId: null
+    selectedOrderId: null,
+    selectedProductId: null
   };
 
   const elements = {
@@ -37,6 +40,16 @@
     productIsActive: document.getElementById('productIsActive'),
     productsList: document.getElementById('productsList'),
     resetProductFormButton: document.getElementById('resetProductFormButton'),
+    productOptionForm: document.getElementById('productOptionForm'),
+    productOptionId: document.getElementById('productOptionId'),
+    productOptionName: document.getElementById('productOptionName'),
+    productOptionDescription: document.getElementById('productOptionDescription'),
+    productOptionPriceModifier: document.getElementById('productOptionPriceModifier'),
+    productOptionIsRequired: document.getElementById('productOptionIsRequired'),
+    productOptionIsActive: document.getElementById('productOptionIsActive'),
+    productOptionContext: document.getElementById('productOptionContext'),
+    productOptionsList: document.getElementById('productOptionsList'),
+    resetProductOptionFormButton: document.getElementById('resetProductOptionFormButton'),
     categoryForm: document.getElementById('categoryForm'),
     categoryId: document.getElementById('categoryId'),
     categoryName: document.getElementById('categoryName'),
@@ -44,6 +57,15 @@
     categoryIsActive: document.getElementById('categoryIsActive'),
     categoriesList: document.getElementById('categoriesList'),
     resetCategoryFormButton: document.getElementById('resetCategoryFormButton'),
+    scheduleForm: document.getElementById('scheduleForm'),
+    scheduleId: document.getElementById('scheduleId'),
+    scheduleDayOfWeek: document.getElementById('scheduleDayOfWeek'),
+    scheduleStartTime: document.getElementById('scheduleStartTime'),
+    scheduleEndTime: document.getElementById('scheduleEndTime'),
+    scheduleFulfillmentType: document.getElementById('scheduleFulfillmentType'),
+    scheduleIsActive: document.getElementById('scheduleIsActive'),
+    schedulesList: document.getElementById('schedulesList'),
+    resetScheduleFormButton: document.getElementById('resetScheduleFormButton'),
     settingsForm: document.getElementById('settingsForm'),
     settingsStoreName: document.getElementById('settingsStoreName'),
     settingsDescription: document.getElementById('settingsDescription'),
@@ -61,6 +83,7 @@
     settingsPickupEnabled: document.getElementById('settingsPickupEnabled'),
     settingsIsActive: document.getElementById('settingsIsActive')
   };
+  const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
   function setMessage(message) {
     elements.panelMessage.textContent = message || '';
@@ -125,6 +148,24 @@
     elements.productId.value = '';
     elements.productIsActive.checked = true;
     elements.productCategoryId.value = '';
+    state.selectedProductId = null;
+    state.productOptions = [];
+    renderProductOptions();
+  }
+
+  function resetProductOptionForm() {
+    elements.productOptionForm.reset();
+    elements.productOptionId.value = '';
+    elements.productOptionIsActive.checked = true;
+    elements.productOptionIsRequired.checked = false;
+  }
+
+  function resetScheduleForm() {
+    elements.scheduleForm.reset();
+    elements.scheduleId.value = '';
+    elements.scheduleIsActive.checked = true;
+    elements.scheduleDayOfWeek.value = '0';
+    elements.scheduleFulfillmentType.value = 'delivery';
   }
 
   function populateCategorySelect() {
@@ -151,6 +192,7 @@
         '      <strong>#' + order.id + ' · ' + escapeHtml(order.customer_name) + '</strong>',
         '      <div class="order-meta">',
         '        <span>' + escapeHtml(order.customer_phone) + ' · ' + escapeHtml(order.delivery_type) + '</span>',
+        '        <span>' + escapeHtml((order.fulfillment_day || '-') + ' · ' + (order.fulfillment_time_range || '-')) + '</span>',
         '        <span>' + escapeHtml(formatDate(order.created_at)) + '</span>',
         '      </div>',
         '    </div>',
@@ -283,12 +325,16 @@
         '<div><strong>Teléfono:</strong> ' + escapeHtml(detail.customer_phone) + '</div>',
         '<div><strong>Entrega:</strong> ' + escapeHtml(detail.delivery_type) + '</div>',
         '<div><strong>Dirección:</strong> ' + escapeHtml(detail.address || '-') + '</div>',
+        '<div><strong>Día:</strong> ' + escapeHtml(detail.fulfillment_day || '-') + '</div>',
+        '<div><strong>Horario:</strong> ' + escapeHtml(detail.fulfillment_time_range || '-') + '</div>',
         '<div><strong>Estado:</strong> ' + escapeHtml(detail.status) + '</div>',
         '<div><strong>Observaciones:</strong> ' + escapeHtml(detail.notes || '-') + '</div>',
         '<div><strong>Total:</strong> ' + escapeHtml(formatMoney(detail.total)) + '</div>',
         '<div><strong>Items:</strong></div>',
         '<ul>' + detail.items.map(function toItem(item) {
-          return '<li>' + escapeHtml(item.quantity + ' x ' + item.product_name + ' · ' + formatMoney(item.subtotal)) + '</li>';
+          const optionLabel = item.product_option_name ? ' [' + item.product_option_name + ']' : '';
+
+          return '<li>' + escapeHtml(item.quantity + ' x ' + item.product_name + optionLabel + ' · ' + formatMoney(item.subtotal)) + '</li>';
         }).join('') + '</ul>'
       ].join('');
     } catch (error) {
@@ -302,18 +348,23 @@
         global.AdminApi.getOrders(),
         global.AdminApi.getProducts(),
         global.AdminApi.getCategories(),
-        global.AdminApi.getSettings()
+        global.AdminApi.getSettings(),
+        global.AdminApi.getFulfillmentSchedules()
       ]);
 
       state.orders = data[0];
       state.products = data[1];
       state.categories = data[2];
       state.settings = data[3];
+      state.schedules = data[4];
+      state.productOptions = state.selectedProductId ? await global.AdminApi.getProductOptions(state.selectedProductId) : [];
 
       populateCategorySelect();
       renderOrders();
       renderProducts();
       renderCategories();
+      renderProductOptions();
+      renderSchedules();
       fillSettingsForm();
       renderOrderDetail();
       setMessage('Panel actualizado.');
@@ -445,6 +496,8 @@
     if (editButton) {
       const productId = Number.parseInt(editButton.getAttribute('data-edit-product'), 10);
       const product = await global.AdminApi.getProductById(productId);
+      state.selectedProductId = product.id;
+      state.productOptions = await global.AdminApi.getProductOptions(product.id);
 
       elements.productId.value = product.id;
       elements.productCategoryId.value = product.category_id == null ? '' : String(product.category_id);
@@ -454,6 +507,8 @@
       elements.productImageUrl.value = product.image_url || '';
       elements.productStock.value = product.stock == null ? '' : product.stock;
       elements.productIsActive.checked = Boolean(product.is_active);
+      elements.productOptionContext.textContent = 'Opciones para "' + product.name + '".';
+      renderProductOptions();
       setActiveTab('products');
       setMessage('Editando producto #' + product.id + '.');
     }
@@ -488,6 +543,193 @@
       await loadDashboardData();
     } catch (error) {
       handleApiError(error);
+    }
+  }
+
+  function renderProductOptions() {
+    if (!state.selectedProductId) {
+      elements.productOptionContext.textContent = 'Seleccioná un producto para gestionar sus opciones.';
+      elements.productOptionsList.innerHTML = '<article class="list-card"><p class="muted">Todavía no hay producto seleccionado.</p></article>';
+      return;
+    }
+
+    if (state.productOptions.length === 0) {
+      elements.productOptionsList.innerHTML = '<article class="list-card"><p class="muted">No hay opciones cargadas para este producto.</p></article>';
+      return;
+    }
+
+    elements.productOptionsList.innerHTML = state.productOptions.map(function toCard(option) {
+      return [
+        '<article class="list-card">',
+        '  <div class="list-row">',
+        '    <div>',
+        '      <strong>' + escapeHtml(option.name) + '</strong>',
+        '      <div class="list-meta">',
+        '        <span>' + escapeHtml(option.description || 'Sin descripción') + '</span>',
+        '        <span>' + escapeHtml(formatMoney(option.price_modifier)) + ' · ' + escapeHtml(option.is_required ? 'requerida' : 'opcional') + '</span>',
+        '      </div>',
+        '    </div>',
+        '    <span class="status-chip">' + escapeHtml(option.is_active ? 'active' : 'inactive') + '</span>',
+        '  </div>',
+        '  <div class="card-actions">',
+        '    <button class="status-action" type="button" data-edit-option="' + option.id + '">Editar</button>',
+        '    <button class="status-action" type="button" data-delete-option="' + option.id + '">Desactivar</button>',
+        '  </div>',
+        '</article>'
+      ].join('');
+    }).join('');
+  }
+
+  async function handleProductOptionSubmit(event) {
+    event.preventDefault();
+
+    if (!state.selectedProductId) {
+      setMessage('Primero seleccioná un producto para cargar opciones.');
+      return;
+    }
+
+    const payload = {
+      name: elements.productOptionName.value.trim(),
+      description: elements.productOptionDescription.value.trim(),
+      price_modifier: Number(elements.productOptionPriceModifier.value || 0),
+      is_required: elements.productOptionIsRequired.checked,
+      is_active: elements.productOptionIsActive.checked
+    };
+
+    try {
+      if (elements.productOptionId.value) {
+        await global.AdminApi.updateProductOption(Number.parseInt(elements.productOptionId.value, 10), payload);
+      } else {
+        await global.AdminApi.createProductOption(state.selectedProductId, payload);
+      }
+
+      resetProductOptionForm();
+      state.productOptions = await global.AdminApi.getProductOptions(state.selectedProductId);
+      renderProductOptions();
+      setMessage('Opciones actualizadas.');
+    } catch (error) {
+      handleApiError(error);
+    }
+  }
+
+  async function handleProductOptionsListClick(event) {
+    const editButton = event.target.closest('[data-edit-option]');
+    const deleteButton = event.target.closest('[data-delete-option]');
+
+    if (editButton) {
+      const optionId = Number.parseInt(editButton.getAttribute('data-edit-option'), 10);
+      const option = state.productOptions.find(function findOption(item) {
+        return item.id === optionId;
+      });
+
+      if (!option) {
+        return;
+      }
+
+      elements.productOptionId.value = option.id;
+      elements.productOptionName.value = option.name || '';
+      elements.productOptionDescription.value = option.description || '';
+      elements.productOptionPriceModifier.value = option.price_modifier || 0;
+      elements.productOptionIsRequired.checked = Boolean(option.is_required);
+      elements.productOptionIsActive.checked = Boolean(option.is_active);
+      setMessage('Editando opción #' + option.id + '.');
+    }
+
+    if (deleteButton) {
+      try {
+        await global.AdminApi.deleteProductOption(Number.parseInt(deleteButton.getAttribute('data-delete-option'), 10));
+        state.productOptions = await global.AdminApi.getProductOptions(state.selectedProductId);
+        renderProductOptions();
+      } catch (error) {
+        handleApiError(error);
+      }
+    }
+  }
+
+  function renderSchedules() {
+    if (state.schedules.length === 0) {
+      elements.schedulesList.innerHTML = '<article class="list-card"><p class="muted">No hay horarios configurados.</p></article>';
+      return;
+    }
+
+    elements.schedulesList.innerHTML = state.schedules.map(function toCard(schedule) {
+      return [
+        '<article class="list-card">',
+        '  <div class="list-row">',
+        '    <div>',
+        '      <strong>' + escapeHtml(DAY_NAMES[schedule.day_of_week] || schedule.day_of_week) + '</strong>',
+        '      <div class="list-meta">',
+        '        <span>' + escapeHtml(String(schedule.start_time).slice(0, 5) + ' - ' + String(schedule.end_time).slice(0, 5)) + '</span>',
+        '        <span>' + escapeHtml(schedule.fulfillment_type) + '</span>',
+        '      </div>',
+        '    </div>',
+        '    <span class="status-chip">' + escapeHtml(schedule.is_active ? 'active' : 'inactive') + '</span>',
+        '  </div>',
+        '  <div class="card-actions">',
+        '    <button class="status-action" type="button" data-edit-schedule="' + schedule.id + '">Editar</button>',
+        '    <button class="status-action" type="button" data-delete-schedule="' + schedule.id + '">Desactivar</button>',
+        '  </div>',
+        '</article>'
+      ].join('');
+    }).join('');
+  }
+
+  async function handleScheduleSubmit(event) {
+    event.preventDefault();
+
+    const payload = {
+      day_of_week: Number.parseInt(elements.scheduleDayOfWeek.value, 10),
+      start_time: elements.scheduleStartTime.value,
+      end_time: elements.scheduleEndTime.value,
+      fulfillment_type: elements.scheduleFulfillmentType.value,
+      is_active: elements.scheduleIsActive.checked
+    };
+
+    try {
+      if (elements.scheduleId.value) {
+        await global.AdminApi.updateFulfillmentSchedule(Number.parseInt(elements.scheduleId.value, 10), payload);
+      } else {
+        await global.AdminApi.createFulfillmentSchedule(payload);
+      }
+
+      resetScheduleForm();
+      await loadDashboardData();
+    } catch (error) {
+      handleApiError(error);
+    }
+  }
+
+  async function handleSchedulesListClick(event) {
+    const editButton = event.target.closest('[data-edit-schedule]');
+    const deleteButton = event.target.closest('[data-delete-schedule]');
+
+    if (editButton) {
+      const scheduleId = Number.parseInt(editButton.getAttribute('data-edit-schedule'), 10);
+      const schedule = state.schedules.find(function findSchedule(item) {
+        return item.id === scheduleId;
+      });
+
+      if (!schedule) {
+        return;
+      }
+
+      elements.scheduleId.value = schedule.id;
+      elements.scheduleDayOfWeek.value = String(schedule.day_of_week);
+      elements.scheduleStartTime.value = String(schedule.start_time).slice(0, 5);
+      elements.scheduleEndTime.value = String(schedule.end_time).slice(0, 5);
+      elements.scheduleFulfillmentType.value = schedule.fulfillment_type;
+      elements.scheduleIsActive.checked = Boolean(schedule.is_active);
+      setActiveTab('schedules');
+      setMessage('Editando horario #' + schedule.id + '.');
+    }
+
+    if (deleteButton) {
+      try {
+        await global.AdminApi.deleteFulfillmentSchedule(Number.parseInt(deleteButton.getAttribute('data-delete-schedule'), 10));
+        await loadDashboardData();
+      } catch (error) {
+        handleApiError(error);
+      }
     }
   }
 
@@ -554,9 +796,15 @@
     elements.productForm.addEventListener('submit', handleProductSubmit);
     elements.productsList.addEventListener('click', handleProductsListClick);
     elements.resetProductFormButton.addEventListener('click', resetProductForm);
+    elements.productOptionForm.addEventListener('submit', handleProductOptionSubmit);
+    elements.productOptionsList.addEventListener('click', handleProductOptionsListClick);
+    elements.resetProductOptionFormButton.addEventListener('click', resetProductOptionForm);
     elements.categoryForm.addEventListener('submit', handleCategorySubmit);
     elements.categoriesList.addEventListener('click', handleCategoriesListClick);
     elements.resetCategoryFormButton.addEventListener('click', resetCategoryForm);
+    elements.scheduleForm.addEventListener('submit', handleScheduleSubmit);
+    elements.schedulesList.addEventListener('click', handleSchedulesListClick);
+    elements.resetScheduleFormButton.addEventListener('click', resetScheduleForm);
     elements.settingsForm.addEventListener('submit', handleSettingsSubmit);
   }
 
@@ -565,6 +813,8 @@
     setActiveTab('orders');
     resetCategoryForm();
     resetProductForm();
+    resetProductOptionForm();
+    resetScheduleForm();
 
     if (global.AdminAuth.getToken()) {
       setAuthState(true);
