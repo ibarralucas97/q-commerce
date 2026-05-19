@@ -121,7 +121,7 @@
 
   function setCheckoutSubmitting(isSubmitting) {
     state.isSubmittingOrder = isSubmitting;
-    elements.checkoutButton.disabled = isSubmitting || global.CartStore.getSummary(state.settings ? state.settings.delivery_fee : 0, isDeliverySelected()).itemCount === 0;
+    elements.checkoutButton.disabled = isSubmitting;
     elements.checkoutButton.textContent = isSubmitting ? 'Enviando pedido...' : 'Pedir por WhatsApp';
   }
 
@@ -325,7 +325,6 @@
         '  <div>',
         '    <div class="product-card__title-row">',
         '      <div>',
-        '        <span class="product-card__category">' + escapeHtml(product.category_name || 'Sin categoria') + '</span>',
         '        <h3 class="product-card__title">' + escapeHtml(product.name) + '</h3>',
         '      </div>',
         '      <span class="price-pill">' + escapeHtml(formatMoney(product.price)) + '</span>',
@@ -349,7 +348,7 @@
     elements.subtotalAmount.textContent = formatMoney(summary.subtotal);
     elements.deliveryAmount.textContent = formatMoney(summary.delivery);
     elements.totalAmount.textContent = formatMoney(summary.total);
-    elements.checkoutButton.disabled = state.isSubmittingOrder || summary.itemCount === 0;
+    elements.checkoutButton.disabled = state.isSubmittingOrder;
     elements.emptyCartMessage.classList.toggle('is-hidden', summary.itemCount > 0);
 
     if (summary.itemCount === 0) {
@@ -449,7 +448,7 @@
 
     if (summary.itemCount === 0) {
       elements.checkoutHint.textContent = 'Tu carrito esta vacio.';
-      showToast('warning', 'Debes agregar productos al carrito.');
+      showToast('warning', 'Agregá al menos un producto para enviar el pedido.');
       return;
     }
 
@@ -465,25 +464,25 @@
 
     if (!formData.name) {
       elements.checkoutHint.textContent = 'Ingresa tu nombre para continuar.';
-      showToast('warning', 'Completa tu nombre.');
+      showToast('warning', 'Completá tu nombre.');
       return;
     }
 
     if (!formData.phone) {
       elements.checkoutHint.textContent = 'Ingresa un telefono de contacto.';
-      showToast('warning', 'Completa tu telefono.');
+      showToast('warning', 'Completá tu teléfono.');
       return;
     }
 
     if (formData.deliveryType === 'delivery' && !formData.address) {
       elements.checkoutHint.textContent = 'Ingresa la direccion para delivery.';
-      showToast('warning', 'Completa la direccion para delivery.');
+      showToast('warning', 'Ingresá la dirección para delivery.');
       return;
     }
 
     if (hasSchedulesForSelectedFulfillment() && (!formData.fulfillmentDay || !formData.fulfillmentTimeRange)) {
       elements.checkoutHint.textContent = 'Selecciona dia y horario para continuar.';
-      showToast('warning', 'Selecciona dia y horario.');
+      showToast('warning', 'Seleccioná día y horario de entrega.');
       return;
     }
 
@@ -631,7 +630,7 @@
 
       if (!state.selectedOptionId) {
         elements.optionModalHint.textContent = 'Selecciona una opcion para continuar.';
-        showToast('warning', 'Selecciona una opcion para continuar.');
+        showToast('warning', 'Elegí una opción para el producto.');
         return;
       }
 
