@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
@@ -6,10 +6,7 @@
     <title>Admin | Q-Commerce Template</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./assets/css/admin.css" />
   </head>
   <body>
@@ -18,26 +15,22 @@
         <div class="login-card">
           <p class="eyebrow">Admin</p>
           <h1>Ingreso al panel</h1>
-          <p class="muted">
-            Usá tu usuario administrador para gestionar pedidos, productos, categorías y settings.
-          </p>
+          <p class="muted">Usa tu usuario administrador para gestionar pedidos, productos, gastos, horarios y configuracion.</p>
 
           <form class="stack-form" id="loginForm">
             <label class="field">
-              <span>Username</span>
+              <span>Usuario</span>
               <input id="loginUsername" type="text" autocomplete="username" placeholder="admin" required />
             </label>
 
             <label class="field">
-              <span>Password</span>
-              <input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••" required />
+              <span>Contrasena</span>
+              <input id="loginPassword" type="password" autocomplete="current-password" placeholder="********" required />
             </label>
 
             <p class="status-message" id="loginMessage"></p>
 
-            <button class="primary-button" id="loginButton" type="submit">
-              Ingresar
-            </button>
+            <button class="primary-button" id="loginButton" type="submit">Ingresar</button>
           </form>
         </div>
       </section>
@@ -47,6 +40,7 @@
           <div>
             <p class="eyebrow">Q-Commerce Template</p>
             <h1>Panel admin</h1>
+            <p class="muted panel-header__copy">Operacion simple, rapida y usable desde el celular.</p>
           </div>
           <div class="header-actions">
             <span class="muted" id="adminIdentity">Administrador</span>
@@ -55,20 +49,33 @@
         </header>
 
         <nav class="tabs" id="adminTabs">
-          <button class="tab-button is-active" type="button" data-tab="orders">Pedidos</button>
+          <button class="tab-button is-active" type="button" data-tab="dashboard">Dashboard</button>
+          <button class="tab-button" type="button" data-tab="orders">Pedidos</button>
           <button class="tab-button" type="button" data-tab="products">Productos</button>
-          <button class="tab-button" type="button" data-tab="categories">Categorías</button>
+          <button class="tab-button" type="button" data-tab="expenses">Gastos</button>
           <button class="tab-button" type="button" data-tab="schedules">Horarios</button>
-          <button class="tab-button" type="button" data-tab="settings">Settings</button>
+          <button class="tab-button" type="button" data-tab="categories">Categorias</button>
+          <button class="tab-button" type="button" data-tab="settings">Configuracion</button>
         </nav>
 
         <p class="status-banner" id="panelMessage"></p>
 
         <main class="panel-grid">
-          <section class="panel-section" data-section="orders">
+          <section class="panel-section" data-section="dashboard">
             <div class="section-header">
               <div>
-                <p class="eyebrow">Orders</p>
+                <p class="eyebrow">Resumen</p>
+                <h2>Dashboard</h2>
+              </div>
+              <button class="secondary-button" id="refreshDashboardButton" type="button">Actualizar</button>
+            </div>
+            <div class="kpi-grid" id="dashboardSummary"></div>
+          </section>
+
+          <section class="panel-section is-hidden" data-section="orders">
+            <div class="section-header">
+              <div>
+                <p class="eyebrow">Operacion</p>
                 <h2>Pedidos</h2>
               </div>
               <button class="secondary-button" id="refreshOrdersButton" type="button">Actualizar</button>
@@ -88,71 +95,98 @@
           </section>
 
           <section class="panel-section is-hidden" data-section="products">
-            <div class="section-header">
+            <div class="section-header product-section-header">
               <div>
                 <p class="eyebrow">Catalogo</p>
-                <h2>Productos</h2>
+                <h2>Mis Productos</h2>
+                <p class="muted">Gestiona los productos visibles en el catalogo.</p>
               </div>
+              <button class="primary-button" id="openNewProductButton" type="button">+ Nuevo producto</button>
             </div>
 
-            <form class="editor-card" id="productForm">
-              <input id="productId" type="hidden" />
-              <div class="two-columns">
+            <div class="card-list" id="productsList"></div>
+
+            <article class="editor-card product-editor-card is-hidden" id="productEditorCard">
+              <form class="stack-form" id="productForm">
+                <input id="productId" type="hidden" />
+
+                <div class="section-header section-header--compact">
+                  <div>
+                    <p class="eyebrow">Editor</p>
+                    <h3 id="productEditorTitle">Nuevo producto</h3>
+                  </div>
+                  <div class="form-actions">
+                    <button class="primary-button" id="productSubmitButton" type="submit">Crear producto</button>
+                    <button class="ghost-button" id="cancelProductEditButton" type="button">Cancelar</button>
+                  </div>
+                </div>
+
+                <div class="two-columns">
+                  <label class="field">
+                    <span>Categoria</span>
+                    <select id="productCategoryId"></select>
+                  </label>
+                  <label class="field">
+                    <span>Nombre</span>
+                    <input id="productName" type="text" required />
+                  </label>
+                </div>
+
                 <label class="field">
-                  <span>Categoría</span>
-                  <select id="productCategoryId"></select>
+                  <span>Descripcion</span>
+                  <textarea id="productDescription" rows="3"></textarea>
                 </label>
+
+                <div class="two-columns">
+                  <label class="field">
+                    <span>Precio</span>
+                    <input id="productPrice" type="number" min="0" step="0.01" required />
+                  </label>
+                  <label class="field">
+                    <span>Stock</span>
+                    <input id="productStock" type="number" min="0" step="1" />
+                  </label>
+                </div>
+
                 <label class="field">
-                  <span>Nombre</span>
-                  <input id="productName" type="text" required />
+                  <span>Imagen URL</span>
+                  <input id="productImageUrl" type="url" placeholder="https://..." />
                 </label>
-              </div>
 
-              <label class="field">
-                <span>Descripción</span>
-                <textarea id="productDescription" rows="3"></textarea>
-              </label>
+                <div class="upload-card">
+                  <label class="field">
+                    <span>Archivo de imagen</span>
+                    <input id="productImageFile" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" />
+                  </label>
+                  <div class="form-actions">
+                    <button class="secondary-button" id="uploadProductImageButton" type="button">Subir imagen</button>
+                  </div>
+                </div>
 
-              <div class="two-columns">
-                <label class="field">
-                  <span>Precio</span>
-                  <input id="productPrice" type="number" min="0" step="0.01" required />
+                <div class="image-preview is-empty" id="productImagePreview">
+                  <img id="productImagePreviewImg" alt="Vista previa del producto" hidden />
+                  <p id="productImagePreviewText">Sin imagen cargada.</p>
+                </div>
+
+                <label class="checkbox-field">
+                  <input id="productIsActive" type="checkbox" checked />
+                  <span>Producto activo</span>
                 </label>
-                <label class="field">
-                  <span>Stock</span>
-                  <input id="productStock" type="number" min="0" step="1" />
-                </label>
-              </div>
+              </form>
+            </article>
 
-              <label class="field">
-                <span>Imagen URL</span>
-                <input id="productImageUrl" type="url" />
-              </label>
-
-              <label class="checkbox-field">
-                <input id="productIsActive" type="checkbox" checked />
-                <span>Producto activo</span>
-              </label>
-
-              <div class="form-actions">
-                <button class="primary-button" type="submit">Guardar producto</button>
-                <button class="ghost-button" id="resetProductFormButton" type="button">Nuevo</button>
-              </div>
-            </form>
-
-            <article class="editor-card">
-              <div class="section-header">
+            <article class="editor-card product-options-card is-hidden" id="productOptionsCard">
+              <div class="section-header section-header--compact">
                 <div>
                   <p class="eyebrow">Opciones</p>
-                  <h3>Opciones del producto</h3>
+                  <h3 id="productOptionsTitle">Opciones del producto</h3>
                 </div>
+                <button class="ghost-button" id="closeProductOptionsButton" type="button">Cerrar</button>
               </div>
 
               <form class="stack-form" id="productOptionForm">
                 <input id="productOptionId" type="hidden" />
-                <p class="muted" id="productOptionContext">
-                  Seleccioná un producto para gestionar sus opciones.
-                </p>
+                <p class="muted" id="productOptionContext">Selecciona un producto para gestionar sus opciones.</p>
 
                 <label class="field">
                   <span>Nombre</span>
@@ -160,7 +194,7 @@
                 </label>
 
                 <label class="field">
-                  <span>Descripción</span>
+                  <span>Descripcion</span>
                   <textarea id="productOptionDescription" rows="3"></textarea>
                 </label>
 
@@ -171,60 +205,81 @@
                   </label>
                   <label class="checkbox-field">
                     <input id="productOptionIsRequired" type="checkbox" />
-                    <span>Opción requerida</span>
+                    <span>Opcion requerida</span>
                   </label>
                 </div>
 
                 <label class="checkbox-field">
                   <input id="productOptionIsActive" type="checkbox" checked />
-                  <span>Opción activa</span>
+                  <span>Opcion activa</span>
                 </label>
 
                 <div class="form-actions">
-                  <button class="primary-button" type="submit">Guardar opción</button>
+                  <button class="primary-button" type="submit">Guardar opcion</button>
                   <button class="ghost-button" id="resetProductOptionFormButton" type="button">Nueva</button>
                 </div>
               </form>
 
               <div class="card-list" id="productOptionsList"></div>
             </article>
-
-            <div class="card-list" id="productsList"></div>
           </section>
 
-          <section class="panel-section is-hidden" data-section="categories">
+          <section class="panel-section is-hidden" data-section="expenses">
             <div class="section-header">
               <div>
-                <p class="eyebrow">Taxonomía</p>
-                <h2>Categorías</h2>
+                <p class="eyebrow">Costos</p>
+                <h2>Gastos</h2>
               </div>
             </div>
 
-            <form class="editor-card" id="categoryForm">
-              <input id="categoryId" type="hidden" />
+            <div class="workspace-grid">
+              <div class="workspace-main">
+                <form class="editor-card" id="expenseForm">
+                  <input id="expenseId" type="hidden" />
 
-              <label class="field">
-                <span>Nombre</span>
-                <input id="categoryName" type="text" required />
-              </label>
+                  <div class="two-columns">
+                    <label class="field">
+                      <span>Titulo</span>
+                      <input id="expenseTitle" type="text" required />
+                    </label>
+                    <label class="field">
+                      <span>Categoria</span>
+                      <input id="expenseCategory" type="text" />
+                    </label>
+                  </div>
 
-              <label class="field">
-                <span>Descripción</span>
-                <textarea id="categoryDescription" rows="3"></textarea>
-              </label>
+                  <div class="two-columns">
+                    <label class="field">
+                      <span>Monto</span>
+                      <input id="expenseAmount" type="number" min="0" step="0.01" required />
+                    </label>
+                    <label class="field">
+                      <span>Fecha</span>
+                      <input id="expenseDate" type="date" required />
+                    </label>
+                  </div>
 
-              <label class="checkbox-field">
-                <input id="categoryIsActive" type="checkbox" checked />
-                <span>Categoría activa</span>
-              </label>
+                  <label class="field">
+                    <span>Descripcion</span>
+                    <textarea id="expenseDescription" rows="3"></textarea>
+                  </label>
 
-              <div class="form-actions">
-                <button class="primary-button" type="submit">Guardar categoría</button>
-                <button class="ghost-button" id="resetCategoryFormButton" type="button">Nueva</button>
+                  <div class="form-actions">
+                    <button class="primary-button" type="submit">Guardar gasto</button>
+                    <button class="ghost-button" id="resetExpenseFormButton" type="button">Nuevo</button>
+                  </div>
+                </form>
               </div>
-            </form>
 
-            <div class="card-list" id="categoriesList"></div>
+              <div class="workspace-side">
+                <article class="summary-card">
+                  <p class="eyebrow">Semana</p>
+                  <h3 id="expensesSummaryAmount">ARS 0</h3>
+                  <p class="muted">Total de gastos registrados esta semana.</p>
+                </article>
+                <div class="card-list" id="expensesList"></div>
+              </div>
+            </div>
           </section>
 
           <section class="panel-section is-hidden" data-section="schedules">
@@ -240,15 +295,15 @@
 
               <div class="two-columns">
                 <label class="field">
-                  <span>Día</span>
+                  <span>Dia</span>
                   <select id="scheduleDayOfWeek">
                     <option value="0">Domingo</option>
                     <option value="1">Lunes</option>
                     <option value="2">Martes</option>
-                    <option value="3">Miércoles</option>
+                    <option value="3">Miercoles</option>
                     <option value="4">Jueves</option>
                     <option value="5">Viernes</option>
-                    <option value="6">Sábado</option>
+                    <option value="6">Sabado</option>
                   </select>
                 </label>
 
@@ -256,8 +311,8 @@
                   <span>Tipo</span>
                   <select id="scheduleFulfillmentType">
                     <option value="delivery">Delivery</option>
-                    <option value="pickup">Pickup</option>
-                    <option value="both">Both</option>
+                    <option value="pickup">Retiro</option>
+                    <option value="both">Ambos</option>
                   </select>
                 </label>
               </div>
@@ -287,11 +342,46 @@
             <div class="card-list" id="schedulesList"></div>
           </section>
 
+          <section class="panel-section is-hidden" data-section="categories">
+            <div class="section-header">
+              <div>
+                <p class="eyebrow">Organizacion</p>
+                <h2>Categorias</h2>
+              </div>
+            </div>
+
+            <form class="editor-card" id="categoryForm">
+              <input id="categoryId" type="hidden" />
+
+              <label class="field">
+                <span>Nombre</span>
+                <input id="categoryName" type="text" required />
+              </label>
+
+              <label class="field">
+                <span>Descripcion</span>
+                <textarea id="categoryDescription" rows="3"></textarea>
+              </label>
+
+              <label class="checkbox-field">
+                <input id="categoryIsActive" type="checkbox" checked />
+                <span>Categoria activa</span>
+              </label>
+
+              <div class="form-actions">
+                <button class="primary-button" type="submit">Guardar categoria</button>
+                <button class="ghost-button" id="resetCategoryFormButton" type="button">Nueva</button>
+              </div>
+            </form>
+
+            <div class="card-list" id="categoriesList"></div>
+          </section>
+
           <section class="panel-section is-hidden" data-section="settings">
             <div class="section-header">
               <div>
-                <p class="eyebrow">Configuración</p>
-                <h2>Settings</h2>
+                <p class="eyebrow">Configuracion</p>
+                <h2>Datos del negocio</h2>
               </div>
             </div>
 
@@ -308,13 +398,13 @@
               </div>
 
               <label class="field">
-                <span>Descripción</span>
+                <span>Descripcion</span>
                 <textarea id="settingsDescription" rows="3"></textarea>
               </label>
 
               <div class="two-columns">
                 <label class="field">
-                  <span>Dirección</span>
+                  <span>Direccion</span>
                   <input id="settingsAddress" type="text" />
                 </label>
                 <label class="field">
@@ -336,7 +426,7 @@
 
               <div class="two-columns">
                 <label class="field">
-                  <span>Delivery fee</span>
+                  <span>Costo de delivery</span>
                   <input id="settingsDeliveryFee" type="number" min="0" step="0.01" />
                 </label>
                 <label class="field">
@@ -377,7 +467,7 @@
               </div>
 
               <div class="form-actions">
-                <button class="primary-button" type="submit">Guardar settings</button>
+                <button class="primary-button" type="submit">Guardar configuracion</button>
               </div>
             </form>
           </section>
@@ -385,6 +475,8 @@
       </section>
     </div>
 
+    <script src="./js/components/toast.js" defer></script>
+    <script src="./js/components/uiLabels.js" defer></script>
     <script src="./js/admin/adminAuth.js" defer></script>
     <script src="./js/admin/adminApi.js" defer></script>
     <script src="./js/admin/adminMain.js" defer></script>

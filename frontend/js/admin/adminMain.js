@@ -1,14 +1,22 @@
 (function bootstrapAdminApp(global) {
+  const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado'];
+  const ORDER_STATUS_FLOW = ['new', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
   const state = {
-    activeTab: 'orders',
+    activeTab: 'dashboard',
+    summary: null,
     orders: [],
     products: [],
     productOptions: [],
     categories: [],
+    expenses: [],
     schedules: [],
     settings: null,
     selectedOrderId: null,
-    selectedProductId: null
+    selectedProductId: null,
+    selectedProductName: '',
+    isProductEditorOpen: false,
+    productEditorMode: 'create',
+    isProductOptionsOpen: false
   };
 
   const elements = {
@@ -24,11 +32,18 @@
     panelMessage: document.getElementById('panelMessage'),
     adminTabs: document.getElementById('adminTabs'),
     sections: Array.from(document.querySelectorAll('[data-section]')),
+    refreshDashboardButton: document.getElementById('refreshDashboardButton'),
+    dashboardSummary: document.getElementById('dashboardSummary'),
+    refreshOrdersButton: document.getElementById('refreshOrdersButton'),
     ordersList: document.getElementById('ordersList'),
     orderDetailCard: document.getElementById('orderDetailCard'),
     orderDetailTitle: document.getElementById('orderDetailTitle'),
     orderDetailBody: document.getElementById('orderDetailBody'),
-    refreshOrdersButton: document.getElementById('refreshOrdersButton'),
+    openNewProductButton: document.getElementById('openNewProductButton'),
+    productEditorCard: document.getElementById('productEditorCard'),
+    productEditorTitle: document.getElementById('productEditorTitle'),
+    productSubmitButton: document.getElementById('productSubmitButton'),
+    cancelProductEditButton: document.getElementById('cancelProductEditButton'),
     productForm: document.getElementById('productForm'),
     productId: document.getElementById('productId'),
     productCategoryId: document.getElementById('productCategoryId'),
@@ -36,6 +51,11 @@
     productDescription: document.getElementById('productDescription'),
     productPrice: document.getElementById('productPrice'),
     productImageUrl: document.getElementById('productImageUrl'),
+    productImageFile: document.getElementById('productImageFile'),
+    uploadProductImageButton: document.getElementById('uploadProductImageButton'),
+    productImagePreview: document.getElementById('productImagePreview'),
+    productImagePreviewImg: document.getElementById('productImagePreviewImg'),
+    productImagePreviewText: document.getElementById('productImagePreviewText'),
     productStock: document.getElementById('productStock'),
     productIsActive: document.getElementById('productIsActive'),
     productsList: document.getElementById('productsList'),
@@ -48,8 +68,21 @@
     productOptionIsRequired: document.getElementById('productOptionIsRequired'),
     productOptionIsActive: document.getElementById('productOptionIsActive'),
     productOptionContext: document.getElementById('productOptionContext'),
+    productOptionsCard: document.getElementById('productOptionsCard'),
+    productOptionsTitle: document.getElementById('productOptionsTitle'),
+    closeProductOptionsButton: document.getElementById('closeProductOptionsButton'),
     productOptionsList: document.getElementById('productOptionsList'),
     resetProductOptionFormButton: document.getElementById('resetProductOptionFormButton'),
+    expenseForm: document.getElementById('expenseForm'),
+    expenseId: document.getElementById('expenseId'),
+    expenseTitle: document.getElementById('expenseTitle'),
+    expenseCategory: document.getElementById('expenseCategory'),
+    expenseAmount: document.getElementById('expenseAmount'),
+    expenseDate: document.getElementById('expenseDate'),
+    expenseDescription: document.getElementById('expenseDescription'),
+    expensesList: document.getElementById('expensesList'),
+    expensesSummaryAmount: document.getElementById('expensesSummaryAmount'),
+    resetExpenseFormButton: document.getElementById('resetExpenseFormButton'),
     categoryForm: document.getElementById('categoryForm'),
     categoryId: document.getElementById('categoryId'),
     categoryName: document.getElementById('categoryName'),
@@ -83,7 +116,6 @@
     settingsPickupEnabled: document.getElementById('settingsPickupEnabled'),
     settingsIsActive: document.getElementById('settingsIsActive')
   };
-  const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
   function setMessage(message) {
     elements.panelMessage.textContent = message || '';
@@ -93,19 +125,10 @@
     elements.loginMessage.textContent = message || '';
   }
 
-  function formatMoney(value) {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: state.settings && state.settings.currency_symbol ? state.settings.currency_symbol : 'ARS',
-      maximumFractionDigits: 0
-    }).format(Number(value) || 0);
-  }
-
-  function formatDate(value) {
-    return new Intl.DateTimeFormat('es-AR', {
-      dateStyle: 'short',
-      timeStyle: 'short'
-    }).format(new Date(value));
+  function showToast(type, message) {
+    if (global.Toast && typeof global.Toast[type] === 'function') {
+      global.Toast[type](message);
+    }
   }
 
   function escapeHtml(value) {
@@ -117,11 +140,50 @@
       .replaceAll("'", '&#39;');
   }
 
+  function getStatusLabel(status) {
+    return global.UiLabels ? global.UiLabels.orderStatus(status) : status;
+  }
+
+  function getFulfillmentLabel(type) {
+    return global.UiLabels ? global.UiLabels.fulfillmentType(type) : type;
+  }
+
+  function getBooleanStatusLabel(value) {
+    return global.UiLabels ? global.UiLabels.booleanStatus(Boolean(value)) : (value ? 'Activo' : 'Inactivo');
+  }
+
+  function formatMoney(value) {
+    const amount = Number.parseFloat(value) || 0;
+    const currency = state.settings && state.settings.currency_symbol ? state.settings.currency_symbol : 'ARS';
+
+    if (/^[A-Z]{3}$/.test(currency)) {
+      return new Intl.NumberFormat('es-AR', {
+        style: 'currency',
+        currency: currency,
+        maximumFractionDigits: 0
+      }).format(amount);
+    }
+
+    return currency + ' ' + new Intl.NumberFormat('es-AR').format(amount);
+  }
+
+  function formatDate(value) {
+    return new Intl.DateTimeFormat('es-AR', {
+      dateStyle: 'short',
+      timeStyle: 'short'
+    }).format(new Date(value));
+  }
+
+  function formatShortDate(value) {
+    return new Intl.DateTimeFormat('es-AR', {
+      dateStyle: 'short'
+    }).format(new Date(value));
+  }
+
   function setAuthState(isAuthenticated) {
     elements.loginView.classList.toggle('is-hidden', isAuthenticated);
     elements.panelView.classList.toggle('is-hidden', !isAuthenticated);
     const user = global.AdminAuth.getUser();
-
     elements.adminIdentity.textContent = user && user.username ? user.username : 'Administrador';
   }
 
@@ -137,20 +199,93 @@
     });
   }
 
+  function renderEmpty(container, message) {
+    container.innerHTML = '<article class="list-card"><p class="muted">' + escapeHtml(message) + '</p></article>';
+  }
+
+  function setButtonLoading(button, isLoading, loadingText, defaultText) {
+    if (!button) {
+      return;
+    }
+
+    button.disabled = isLoading;
+    button.textContent = isLoading ? loadingText : defaultText;
+  }
+
+  function scrollToElement(element) {
+    if (!element || typeof element.scrollIntoView !== 'function') {
+      return;
+    }
+
+    element.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+  }
+
+  function syncProductEditorUi() {
+    elements.productEditorCard.classList.toggle('is-hidden', !state.isProductEditorOpen);
+    elements.productEditorCard.classList.toggle('is-editing', state.productEditorMode === 'edit');
+    elements.productEditorTitle.textContent = state.productEditorMode === 'edit' ? 'Editar producto' : 'Nuevo producto';
+    elements.productSubmitButton.textContent = state.productEditorMode === 'edit' ? 'Guardar cambios' : 'Crear producto';
+  }
+
+  function openProductEditor(mode) {
+    state.isProductEditorOpen = true;
+    state.productEditorMode = mode;
+    syncProductEditorUi();
+    scrollToElement(elements.productEditorCard);
+  }
+
+  function closeProductEditor() {
+    state.isProductEditorOpen = false;
+    state.productEditorMode = 'create';
+    syncProductEditorUi();
+  }
+
+  function syncProductOptionsUi() {
+    elements.productOptionsCard.classList.toggle('is-hidden', !state.isProductOptionsOpen);
+    elements.productOptionsTitle.textContent = state.selectedProductName
+      ? 'Opciones de: ' + state.selectedProductName
+      : 'Opciones del producto';
+  }
+
+  function openProductOptionsManager() {
+    state.isProductOptionsOpen = true;
+    syncProductOptionsUi();
+    scrollToElement(elements.productOptionsCard);
+  }
+
+  function closeProductOptionsManager() {
+    state.isProductOptionsOpen = false;
+    state.selectedProductId = null;
+    state.selectedProductName = '';
+    state.productOptions = [];
+    resetProductOptionForm();
+    elements.productOptionContext.textContent = 'Selecciona un producto para gestionar sus opciones.';
+    syncProductOptionsUi();
+    renderProductOptions();
+  }
+
+  function updateProductImagePreview() {
+    const imageUrl = elements.productImageUrl.value.trim();
+    const hasImage = imageUrl !== '';
+
+    elements.productImagePreview.classList.toggle('is-empty', !hasImage);
+    elements.productImagePreviewImg.hidden = !hasImage;
+    elements.productImagePreviewText.hidden = hasImage;
+
+    if (hasImage) {
+      elements.productImagePreviewImg.src = imageUrl;
+    } else {
+      elements.productImagePreviewImg.removeAttribute('src');
+    }
+  }
+
   function resetCategoryForm() {
     elements.categoryForm.reset();
     elements.categoryId.value = '';
     elements.categoryIsActive.checked = true;
-  }
-
-  function resetProductForm() {
-    elements.productForm.reset();
-    elements.productId.value = '';
-    elements.productIsActive.checked = true;
-    elements.productCategoryId.value = '';
-    state.selectedProductId = null;
-    state.productOptions = [];
-    renderProductOptions();
   }
 
   function resetProductOptionForm() {
@@ -158,6 +293,22 @@
     elements.productOptionId.value = '';
     elements.productOptionIsActive.checked = true;
     elements.productOptionIsRequired.checked = false;
+  }
+
+  function resetProductForm() {
+    elements.productForm.reset();
+    elements.productId.value = '';
+    elements.productIsActive.checked = true;
+    elements.productCategoryId.value = '';
+    updateProductImagePreview();
+    setButtonLoading(elements.uploadProductImageButton, false, 'Subiendo...', 'Subir imagen');
+    elements.productImageFile.value = '';
+  }
+
+  function resetExpenseForm() {
+    elements.expenseForm.reset();
+    elements.expenseId.value = '';
+    elements.expenseDate.value = new Date().toISOString().slice(0, 10);
   }
 
   function resetScheduleForm() {
@@ -169,127 +320,13 @@
   }
 
   function populateCategorySelect() {
-    const options = ['<option value="">Sin categoría</option>'].concat(
+    const options = ['<option value="">Sin categoria</option>'].concat(
       state.categories.map(function toOption(category) {
         return '<option value="' + category.id + '">' + escapeHtml(category.name) + '</option>';
       })
     );
 
     elements.productCategoryId.innerHTML = options.join('');
-  }
-
-  function renderOrders() {
-    if (state.orders.length === 0) {
-      elements.ordersList.innerHTML = '<article class="list-card"><p class="muted">Todavía no hay pedidos.</p></article>';
-      return;
-    }
-
-    elements.ordersList.innerHTML = state.orders.map(function toOrderCard(order) {
-      return [
-        '<article class="order-card">',
-        '  <div class="order-card__header">',
-        '    <div>',
-        '      <strong>#' + order.id + ' · ' + escapeHtml(order.customer_name) + '</strong>',
-        '      <div class="order-meta">',
-        '        <span>' + escapeHtml(order.customer_phone) + ' · ' + escapeHtml(order.delivery_type) + '</span>',
-        '        <span>' + escapeHtml((order.fulfillment_day || '-') + ' · ' + (order.fulfillment_time_range || '-')) + '</span>',
-        '        <span>' + escapeHtml(formatDate(order.created_at)) + '</span>',
-        '      </div>',
-        '    </div>',
-        '    <span class="status-chip">' + escapeHtml(order.status) + '</span>',
-        '  </div>',
-        '  <div class="card-actions">',
-        '    <strong>' + escapeHtml(formatMoney(order.total)) + '</strong>',
-        '    <div class="card-actions">',
-        '      <select class="inline-select" data-order-status="' + order.id + '">',
-        renderStatusOptions(order.status),
-        '      </select>',
-        '      <button class="status-action" type="button" data-view-order="' + order.id + '">Ver</button>',
-        '      <button class="status-action" type="button" data-cancel-order="' + order.id + '">Cancelar</button>',
-        '    </div>',
-        '  </div>',
-        '</article>'
-      ].join('');
-    }).join('');
-  }
-
-  function renderStatusOptions(selectedStatus) {
-    return ['new', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled']
-      .map(function toOption(status) {
-        const selected = status === selectedStatus ? ' selected' : '';
-
-        return '<option value="' + status + '"' + selected + '>' + status + '</option>';
-      })
-      .join('');
-  }
-
-  function renderOrderDetail() {
-    const order = state.orders.find(function findOrder(item) {
-      return item.id === state.selectedOrderId;
-    });
-
-    if (!order) {
-      elements.orderDetailCard.classList.add('is-hidden');
-      elements.orderDetailBody.innerHTML = '';
-      return;
-    }
-
-    elements.orderDetailCard.classList.remove('is-hidden');
-    elements.orderDetailTitle.textContent = 'Pedido #' + order.id;
-    elements.orderDetailBody.innerHTML = '<p class="muted">Cargando detalle...</p>';
-  }
-
-  function renderProducts() {
-    if (state.products.length === 0) {
-      elements.productsList.innerHTML = '<article class="list-card"><p class="muted">No hay productos cargados.</p></article>';
-      return;
-    }
-
-    elements.productsList.innerHTML = state.products.map(function toCard(product) {
-      return [
-        '<article class="list-card">',
-        '  <div class="list-row">',
-        '    <div>',
-        '      <strong>' + escapeHtml(product.name) + '</strong>',
-        '      <div class="list-meta">',
-        '        <span>' + escapeHtml(product.category_name || 'Sin categoría') + '</span>',
-        '        <span>' + escapeHtml(formatMoney(product.price)) + ' · Stock: ' + escapeHtml(product.stock == null ? 'N/D' : product.stock) + '</span>',
-        '      </div>',
-        '    </div>',
-        '    <span class="status-chip">' + escapeHtml(product.is_active ? 'active' : 'inactive') + '</span>',
-        '  </div>',
-        '  <div class="card-actions">',
-        '    <button class="status-action" type="button" data-edit-product="' + product.id + '">Editar</button>',
-        '    <button class="status-action" type="button" data-delete-product="' + product.id + '">Desactivar</button>',
-        '  </div>',
-        '</article>'
-      ].join('');
-    }).join('');
-  }
-
-  function renderCategories() {
-    if (state.categories.length === 0) {
-      elements.categoriesList.innerHTML = '<article class="list-card"><p class="muted">No hay categorías cargadas.</p></article>';
-      return;
-    }
-
-    elements.categoriesList.innerHTML = state.categories.map(function toCard(category) {
-      return [
-        '<article class="list-card">',
-        '  <div class="list-row">',
-        '    <div>',
-        '      <strong>' + escapeHtml(category.name) + '</strong>',
-        '      <div class="list-meta"><span>' + escapeHtml(category.description || 'Sin descripción') + '</span></div>',
-        '    </div>',
-        '    <span class="status-chip">' + escapeHtml(category.is_active ? 'active' : 'inactive') + '</span>',
-        '  </div>',
-        '  <div class="card-actions">',
-        '    <button class="status-action" type="button" data-edit-category="' + category.id + '">Editar</button>',
-        '    <button class="status-action" type="button" data-delete-category="' + category.id + '">Desactivar</button>',
-        '  </div>',
-        '</article>'
-      ].join('');
-    }).join('');
   }
 
   function fillSettingsForm() {
@@ -314,6 +351,242 @@
     elements.settingsIsActive.checked = Boolean(state.settings.is_active);
   }
 
+  function renderStatusOptions(selectedStatus) {
+    return ORDER_STATUS_FLOW.map(function toOption(status) {
+      const selected = status === selectedStatus ? ' selected' : '';
+      return '<option value="' + status + '"' + selected + '>' + escapeHtml(getStatusLabel(status)) + '</option>';
+    }).join('');
+  }
+
+  function renderDashboardSummary() {
+    if (!state.summary) {
+      renderEmpty(elements.dashboardSummary, 'Todavia no hay datos para mostrar.');
+      return;
+    }
+
+    const cards = [
+      { label: 'Pedidos hoy', value: state.summary.orders_today },
+      { label: 'Ventas hoy', value: formatMoney(state.summary.sales_today) },
+      { label: 'Ventas semana', value: formatMoney(state.summary.sales_week) },
+      { label: 'Pedidos pendientes', value: state.summary.pending_orders },
+      { label: 'Productos activos', value: state.summary.active_products },
+      { label: 'Gastos semana', value: formatMoney(state.summary.expenses_week) },
+      { label: 'Ganancia estimada', value: formatMoney(state.summary.estimated_profit_week) }
+    ];
+
+    elements.dashboardSummary.innerHTML = cards.map(function toCard(card) {
+      return '<article class="kpi-card"><p>' + escapeHtml(card.label) + '</p><strong>' + escapeHtml(String(card.value)) + '</strong></article>';
+    }).join('');
+  }
+
+  function renderOrders() {
+    if (state.orders.length === 0) {
+      renderEmpty(elements.ordersList, 'Todavia no hay pedidos.');
+      return;
+    }
+
+    elements.ordersList.innerHTML = state.orders.map(function toOrderCard(order) {
+      const scheduleInfo = [order.fulfillment_day, order.fulfillment_time_range].filter(Boolean).join(' · ') || 'Sin horario';
+
+      return [
+        '<article class="order-card">',
+        '  <div class="order-card__header">',
+        '    <div>',
+        '      <strong>#' + order.id + ' · ' + escapeHtml(order.customer_name) + '</strong>',
+        '      <div class="order-meta">',
+        '        <span>' + escapeHtml(order.customer_phone) + ' · ' + escapeHtml(getFulfillmentLabel(order.delivery_type)) + '</span>',
+        '        <span>' + escapeHtml(scheduleInfo) + '</span>',
+        '        <span>' + escapeHtml(formatDate(order.created_at)) + '</span>',
+        '      </div>',
+        '    </div>',
+        '    <span class="status-chip">' + escapeHtml(getStatusLabel(order.status)) + '</span>',
+        '  </div>',
+        '  <div class="card-actions">',
+        '    <strong>' + escapeHtml(formatMoney(order.total)) + '</strong>',
+        '    <div class="card-actions">',
+        '      <select class="inline-select" data-order-status="' + order.id + '">',
+        renderStatusOptions(order.status),
+        '      </select>',
+        '      <button class="status-action" type="button" data-view-order="' + order.id + '">Ver</button>',
+        '      <button class="status-action" type="button" data-cancel-order="' + order.id + '">Cancelar</button>',
+        '    </div>',
+        '  </div>',
+        '</article>'
+      ].join('');
+    }).join('');
+  }
+
+  function renderOrderDetailPlaceholder() {
+    const order = state.orders.find(function findOrder(item) {
+      return item.id === state.selectedOrderId;
+    });
+
+    if (!order) {
+      elements.orderDetailCard.classList.add('is-hidden');
+      elements.orderDetailBody.innerHTML = '';
+      return;
+    }
+
+    elements.orderDetailCard.classList.remove('is-hidden');
+    elements.orderDetailTitle.textContent = 'Pedido #' + order.id;
+    elements.orderDetailBody.innerHTML = '<p class="muted">Cargando detalle...</p>';
+  }
+
+  function renderProducts() {
+    if (state.products.length === 0) {
+      renderEmpty(elements.productsList, 'No hay productos cargados.');
+      return;
+    }
+
+    elements.productsList.innerHTML = state.products.map(function toCard(product) {
+      const optionsCount = Array.isArray(product.options) ? product.options.length : 0;
+      const media = product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="' + escapeHtml(product.name) + '" />' : '<span>Sin imagen</span>';
+
+      return [
+        '<article class="list-card product-admin-card">',
+        '  <div class="product-admin-card__media">' + media + '</div>',
+        '  <div class="product-admin-card__body">',
+        '    <div class="list-row">',
+        '      <div>',
+        '        <strong>' + escapeHtml(product.name) + '</strong>',
+        '        <div class="list-meta">',
+        '          <span>' + escapeHtml(product.category_name || 'Sin categoria') + '</span>',
+        '          <span>' + escapeHtml(formatMoney(product.price)) + ' · Stock: ' + escapeHtml(product.stock == null ? 'N/D' : product.stock) + '</span>',
+        '          <span>' + escapeHtml(optionsCount + ' opcion' + (optionsCount === 1 ? '' : 'es') + ' disponibles') + '</span>',
+        '        </div>',
+        '      </div>',
+        '      <span class="status-chip">' + escapeHtml(getBooleanStatusLabel(product.is_active)) + '</span>',
+        '    </div>',
+        '    <div class="card-actions">',
+        '      <button class="status-action" type="button" data-edit-product="' + product.id + '">Editar</button>',
+        '      <button class="status-action" type="button" data-manage-options="' + product.id + '">Opciones</button>',
+        '      <button class="status-action" type="button" data-delete-product="' + product.id + '">Desactivar</button>',
+        '    </div>',
+        '  </div>',
+        '</article>'
+      ].join('');
+    }).join('');
+  }
+
+  function renderProductOptions() {
+    syncProductOptionsUi();
+
+    if (!state.isProductOptionsOpen || !state.selectedProductId) {
+      renderEmpty(elements.productOptionsList, 'Selecciona un producto para gestionar sus opciones.');
+      return;
+    }
+
+    if (state.productOptions.length === 0) {
+      renderEmpty(elements.productOptionsList, 'No hay opciones cargadas para este producto.');
+      return;
+    }
+
+    elements.productOptionsList.innerHTML = state.productOptions.map(function toCard(option) {
+      return [
+        '<article class="list-card">',
+        '  <div class="list-row">',
+        '    <div>',
+        '      <strong>' + escapeHtml(option.name) + '</strong>',
+        '      <div class="list-meta">',
+        '        <span>' + escapeHtml(option.description || 'Sin descripcion') + '</span>',
+        '        <span>' + escapeHtml(formatMoney(option.price_modifier)) + ' · ' + escapeHtml(option.is_required ? 'Requerida' : 'Opcional') + '</span>',
+        '      </div>',
+        '    </div>',
+        '    <span class="status-chip">' + escapeHtml(getBooleanStatusLabel(option.is_active)) + '</span>',
+        '  </div>',
+        '  <div class="card-actions">',
+        '    <button class="status-action" type="button" data-edit-option="' + option.id + '">Editar</button>',
+        '    <button class="status-action" type="button" data-delete-option="' + option.id + '">Desactivar</button>',
+        '  </div>',
+        '</article>'
+      ].join('');
+    }).join('');
+  }
+
+  function renderExpenses() {
+    elements.expensesSummaryAmount.textContent = state.summary ? formatMoney(state.summary.expenses_week) : formatMoney(0);
+
+    if (state.expenses.length === 0) {
+      renderEmpty(elements.expensesList, 'No hay gastos cargados.');
+      return;
+    }
+
+    elements.expensesList.innerHTML = state.expenses.map(function toExpenseCard(expense) {
+      return [
+        '<article class="list-card">',
+        '  <div class="list-row">',
+        '    <div>',
+        '      <strong>' + escapeHtml(expense.title) + '</strong>',
+        '      <div class="list-meta">',
+        '        <span>' + escapeHtml(expense.category || 'Sin categoria') + '</span>',
+        '        <span>' + escapeHtml(formatShortDate(expense.expense_date)) + '</span>',
+        '        <span>' + escapeHtml(expense.description || 'Sin descripcion') + '</span>',
+        '      </div>',
+        '    </div>',
+        '    <strong>' + escapeHtml(formatMoney(expense.amount)) + '</strong>',
+        '  </div>',
+        '  <div class="card-actions">',
+        '    <button class="status-action" type="button" data-edit-expense="' + expense.id + '">Editar</button>',
+        '    <button class="status-action" type="button" data-delete-expense="' + expense.id + '">Eliminar</button>',
+        '  </div>',
+        '</article>'
+      ].join('');
+    }).join('');
+  }
+
+  function renderCategories() {
+    if (state.categories.length === 0) {
+      renderEmpty(elements.categoriesList, 'No hay categorias cargadas.');
+      return;
+    }
+
+    elements.categoriesList.innerHTML = state.categories.map(function toCard(category) {
+      return [
+        '<article class="list-card">',
+        '  <div class="list-row">',
+        '    <div>',
+        '      <strong>' + escapeHtml(category.name) + '</strong>',
+        '      <div class="list-meta"><span>' + escapeHtml(category.description || 'Sin descripcion') + '</span></div>',
+        '    </div>',
+        '    <span class="status-chip">' + escapeHtml(getBooleanStatusLabel(category.is_active)) + '</span>',
+        '  </div>',
+        '  <div class="card-actions">',
+        '    <button class="status-action" type="button" data-edit-category="' + category.id + '">Editar</button>',
+        '    <button class="status-action" type="button" data-delete-category="' + category.id + '">Desactivar</button>',
+        '  </div>',
+        '</article>'
+      ].join('');
+    }).join('');
+  }
+
+  function renderSchedules() {
+    if (state.schedules.length === 0) {
+      renderEmpty(elements.schedulesList, 'No hay horarios configurados.');
+      return;
+    }
+
+    elements.schedulesList.innerHTML = state.schedules.map(function toCard(schedule) {
+      return [
+        '<article class="list-card">',
+        '  <div class="list-row">',
+        '    <div>',
+        '      <strong>' + escapeHtml(DAY_NAMES[schedule.day_of_week] || schedule.day_of_week) + '</strong>',
+        '      <div class="list-meta">',
+        '        <span>' + escapeHtml(String(schedule.start_time).slice(0, 5) + ' - ' + String(schedule.end_time).slice(0, 5)) + '</span>',
+        '        <span>' + escapeHtml(getFulfillmentLabel(schedule.fulfillment_type)) + '</span>',
+        '      </div>',
+        '    </div>',
+        '    <span class="status-chip">' + escapeHtml(getBooleanStatusLabel(schedule.is_active)) + '</span>',
+        '  </div>',
+        '  <div class="card-actions">',
+        '    <button class="status-action" type="button" data-edit-schedule="' + schedule.id + '">Editar</button>',
+        '    <button class="status-action" type="button" data-delete-schedule="' + schedule.id + '">Desactivar</button>',
+        '  </div>',
+        '</article>'
+      ].join('');
+    }).join('');
+  }
+
   async function loadOrderDetail(orderId) {
     try {
       const detail = await global.AdminApi.getOrderById(orderId);
@@ -322,18 +595,17 @@
       elements.orderDetailTitle.textContent = 'Pedido #' + detail.id;
       elements.orderDetailBody.innerHTML = [
         '<div><strong>Cliente:</strong> ' + escapeHtml(detail.customer_name) + '</div>',
-        '<div><strong>Teléfono:</strong> ' + escapeHtml(detail.customer_phone) + '</div>',
-        '<div><strong>Entrega:</strong> ' + escapeHtml(detail.delivery_type) + '</div>',
-        '<div><strong>Dirección:</strong> ' + escapeHtml(detail.address || '-') + '</div>',
-        '<div><strong>Día:</strong> ' + escapeHtml(detail.fulfillment_day || '-') + '</div>',
+        '<div><strong>Telefono:</strong> ' + escapeHtml(detail.customer_phone) + '</div>',
+        '<div><strong>Entrega:</strong> ' + escapeHtml(getFulfillmentLabel(detail.delivery_type)) + '</div>',
+        '<div><strong>Direccion:</strong> ' + escapeHtml(detail.address || '-') + '</div>',
+        '<div><strong>Dia:</strong> ' + escapeHtml(detail.fulfillment_day || '-') + '</div>',
         '<div><strong>Horario:</strong> ' + escapeHtml(detail.fulfillment_time_range || '-') + '</div>',
-        '<div><strong>Estado:</strong> ' + escapeHtml(detail.status) + '</div>',
+        '<div><strong>Estado:</strong> ' + escapeHtml(getStatusLabel(detail.status)) + '</div>',
         '<div><strong>Observaciones:</strong> ' + escapeHtml(detail.notes || '-') + '</div>',
         '<div><strong>Total:</strong> ' + escapeHtml(formatMoney(detail.total)) + '</div>',
         '<div><strong>Items:</strong></div>',
         '<ul>' + detail.items.map(function toItem(item) {
           const optionLabel = item.product_option_name ? ' [' + item.product_option_name + ']' : '';
-
           return '<li>' + escapeHtml(item.quantity + ' x ' + item.product_name + optionLabel + ' · ' + formatMoney(item.subtotal)) + '</li>';
         }).join('') + '</ul>'
       ].join('');
@@ -342,31 +614,40 @@
     }
   }
 
-  async function loadDashboardData() {
+  async function loadData() {
     try {
       const data = await Promise.all([
+        global.AdminApi.getDashboardSummary(),
         global.AdminApi.getOrders(),
         global.AdminApi.getProducts(),
         global.AdminApi.getCategories(),
         global.AdminApi.getSettings(),
-        global.AdminApi.getFulfillmentSchedules()
+        global.AdminApi.getFulfillmentSchedules(),
+        global.AdminApi.getExpenses()
       ]);
 
-      state.orders = data[0];
-      state.products = data[1];
-      state.categories = data[2];
-      state.settings = data[3];
-      state.schedules = data[4];
-      state.productOptions = state.selectedProductId ? await global.AdminApi.getProductOptions(state.selectedProductId) : [];
+      state.summary = data[0];
+      state.orders = data[1];
+      state.products = data[2];
+      state.categories = data[3];
+      state.settings = data[4];
+      state.schedules = data[5];
+      state.expenses = data[6];
+      state.productOptions = state.selectedProductId && state.isProductOptionsOpen
+        ? await global.AdminApi.getProductOptions(state.selectedProductId)
+        : [];
 
       populateCategorySelect();
+      fillSettingsForm();
+      renderDashboardSummary();
       renderOrders();
       renderProducts();
-      renderCategories();
       renderProductOptions();
+      renderExpenses();
+      renderCategories();
       renderSchedules();
-      fillSettingsForm();
-      renderOrderDetail();
+      renderOrderDetailPlaceholder();
+      updateProductImagePreview();
       setMessage('Panel actualizado.');
     } catch (error) {
       handleApiError(error);
@@ -376,21 +657,24 @@
   function handleApiError(error) {
     console.error(error);
 
-    if (error.status === 401) {
+    if (error && error.status === 401) {
       global.AdminAuth.clearSession();
       setAuthState(false);
-      setLoginMessage('Tu sesión venció o el token es inválido.');
+      setLoginMessage('Tu sesion vencio o el token no es valido.');
+      showToast('error', 'Tu sesion vencio. Vuelve a iniciar sesion.');
       return;
     }
 
-    setMessage(error.message || 'Ocurrió un error.');
+    const message = error && error.message ? error.message : 'Ocurrio un error inesperado.';
+    setMessage(message);
+    showToast('error', message);
   }
 
   async function handleLogin(event) {
     event.preventDefault();
 
     try {
-      elements.loginButton.disabled = true;
+      setButtonLoading(elements.loginButton, true, 'Ingresando...', 'Ingresar');
       setLoginMessage('Validando credenciales...');
 
       const result = await global.AdminApi.login({
@@ -402,12 +686,15 @@
       setAuthState(true);
       setLoginMessage('');
       elements.loginForm.reset();
-      await loadDashboardData();
+      await loadData();
+      showToast('success', 'Sesion iniciada correctamente.');
     } catch (error) {
       console.error(error);
-      setLoginMessage(error.message || 'No se pudo iniciar sesión.');
+      const message = error && error.message ? error.message : 'No se pudo iniciar sesion.';
+      setLoginMessage(message);
+      showToast('error', message);
     } finally {
-      elements.loginButton.disabled = false;
+      setButtonLoading(elements.loginButton, false, 'Ingresando...', 'Ingresar');
     }
   }
 
@@ -415,10 +702,11 @@
     global.AdminAuth.clearSession();
     setAuthState(false);
     setMessage('');
-    setLoginMessage('Sesión cerrada.');
+    setLoginMessage('Sesion cerrada.');
+    showToast('info', 'Sesion cerrada.');
   }
 
-  async function handleTabAction(event) {
+  function handleTabAction(event) {
     const button = event.target.closest('[data-tab]');
 
     if (!button) {
@@ -434,13 +722,15 @@
 
     if (viewButton) {
       state.selectedOrderId = Number.parseInt(viewButton.getAttribute('data-view-order'), 10);
+      renderOrderDetailPlaceholder();
       await loadOrderDetail(state.selectedOrderId);
     }
 
     if (cancelButton) {
       try {
         await global.AdminApi.cancelOrder(Number.parseInt(cancelButton.getAttribute('data-cancel-order'), 10));
-        await loadDashboardData();
+        await loadData();
+        showToast('warning', 'Pedido cancelado.');
       } catch (error) {
         handleApiError(error);
       }
@@ -456,7 +746,8 @@
 
     try {
       await global.AdminApi.updateOrderStatus(Number.parseInt(select.getAttribute('data-order-status'), 10), select.value);
-      await loadDashboardData();
+      await loadData();
+      showToast('success', 'Estado del pedido actualizado.');
     } catch (error) {
       handleApiError(error);
     }
@@ -478,113 +769,107 @@
     try {
       if (elements.productId.value) {
         await global.AdminApi.updateProduct(Number.parseInt(elements.productId.value, 10), payload);
+        showToast('success', 'Producto actualizado.');
       } else {
         await global.AdminApi.createProduct(payload);
+        showToast('success', 'Producto creado.');
       }
 
       resetProductForm();
-      await loadDashboardData();
+      closeProductEditor();
+      await loadData();
     } catch (error) {
       handleApiError(error);
     }
   }
 
+  async function handleProductImageUpload() {
+    const selectedFile = elements.productImageFile.files && elements.productImageFile.files[0];
+
+    if (!selectedFile) {
+      showToast('warning', 'Selecciona una imagen antes de subirla.');
+      return;
+    }
+
+    try {
+      setButtonLoading(elements.uploadProductImageButton, true, 'Subiendo...', 'Subir imagen');
+
+      const response = await global.AdminApi.uploadProductImage(selectedFile);
+
+      elements.productImageUrl.value = response.image_url || '';
+      updateProductImagePreview();
+      showToast('success', 'Imagen subida correctamente.');
+    } catch (error) {
+      handleApiError(error);
+    } finally {
+      setButtonLoading(elements.uploadProductImageButton, false, 'Subiendo...', 'Subir imagen');
+    }
+  }
+
   async function handleProductsListClick(event) {
     const editButton = event.target.closest('[data-edit-product]');
+    const optionsButton = event.target.closest('[data-manage-options]');
     const deleteButton = event.target.closest('[data-delete-product]');
 
     if (editButton) {
-      const productId = Number.parseInt(editButton.getAttribute('data-edit-product'), 10);
-      const product = await global.AdminApi.getProductById(productId);
-      state.selectedProductId = product.id;
-      state.productOptions = await global.AdminApi.getProductOptions(product.id);
+      try {
+        const productId = Number.parseInt(editButton.getAttribute('data-edit-product'), 10);
+        const product = await global.AdminApi.getProductById(productId);
 
-      elements.productId.value = product.id;
-      elements.productCategoryId.value = product.category_id == null ? '' : String(product.category_id);
-      elements.productName.value = product.name || '';
-      elements.productDescription.value = product.description || '';
-      elements.productPrice.value = product.price || 0;
-      elements.productImageUrl.value = product.image_url || '';
-      elements.productStock.value = product.stock == null ? '' : product.stock;
-      elements.productIsActive.checked = Boolean(product.is_active);
-      elements.productOptionContext.textContent = 'Opciones para "' + product.name + '".';
-      renderProductOptions();
-      setActiveTab('products');
-      setMessage('Editando producto #' + product.id + '.');
+        elements.productId.value = product.id;
+        elements.productCategoryId.value = product.category_id == null ? '' : String(product.category_id);
+        elements.productName.value = product.name || '';
+        elements.productDescription.value = product.description || '';
+        elements.productPrice.value = product.price || 0;
+        elements.productImageUrl.value = product.image_url || '';
+        elements.productStock.value = product.stock == null ? '' : product.stock;
+        elements.productIsActive.checked = Boolean(product.is_active);
+        updateProductImagePreview();
+        openProductEditor('edit');
+        setActiveTab('products');
+        setMessage('Editando producto #' + product.id + '.');
+        showToast('info', 'Editando producto: ' + product.name);
+      } catch (error) {
+        handleApiError(error);
+      }
+    }
+
+    if (optionsButton) {
+      try {
+        const productId = Number.parseInt(optionsButton.getAttribute('data-manage-options'), 10);
+        const product = await global.AdminApi.getProductById(productId);
+
+        state.selectedProductId = product.id;
+        state.selectedProductName = product.name || '';
+        state.productOptions = await global.AdminApi.getProductOptions(product.id);
+        elements.productOptionContext.textContent = 'Opciones para "' + product.name + '".';
+        resetProductOptionForm();
+        openProductOptionsManager();
+        renderProductOptions();
+        showToast('info', 'Gestionando opciones de: ' + product.name);
+      } catch (error) {
+        handleApiError(error);
+      }
     }
 
     if (deleteButton) {
       try {
         await global.AdminApi.deleteProduct(Number.parseInt(deleteButton.getAttribute('data-delete-product'), 10));
-        await loadDashboardData();
+        await loadData();
+        showToast('warning', 'Producto desactivado.');
       } catch (error) {
         handleApiError(error);
       }
     }
   }
 
-  async function handleCategorySubmit(event) {
-    event.preventDefault();
-
-    const payload = {
-      name: elements.categoryName.value.trim(),
-      description: elements.categoryDescription.value.trim(),
-      is_active: elements.categoryIsActive.checked
-    };
-
-    try {
-      if (elements.categoryId.value) {
-        await global.AdminApi.updateCategory(Number.parseInt(elements.categoryId.value, 10), payload);
-      } else {
-        await global.AdminApi.createCategory(payload);
-      }
-
-      resetCategoryForm();
-      await loadDashboardData();
-    } catch (error) {
-      handleApiError(error);
-    }
-  }
-
-  function renderProductOptions() {
-    if (!state.selectedProductId) {
-      elements.productOptionContext.textContent = 'Seleccioná un producto para gestionar sus opciones.';
-      elements.productOptionsList.innerHTML = '<article class="list-card"><p class="muted">Todavía no hay producto seleccionado.</p></article>';
-      return;
-    }
-
-    if (state.productOptions.length === 0) {
-      elements.productOptionsList.innerHTML = '<article class="list-card"><p class="muted">No hay opciones cargadas para este producto.</p></article>';
-      return;
-    }
-
-    elements.productOptionsList.innerHTML = state.productOptions.map(function toCard(option) {
-      return [
-        '<article class="list-card">',
-        '  <div class="list-row">',
-        '    <div>',
-        '      <strong>' + escapeHtml(option.name) + '</strong>',
-        '      <div class="list-meta">',
-        '        <span>' + escapeHtml(option.description || 'Sin descripción') + '</span>',
-        '        <span>' + escapeHtml(formatMoney(option.price_modifier)) + ' · ' + escapeHtml(option.is_required ? 'requerida' : 'opcional') + '</span>',
-        '      </div>',
-        '    </div>',
-        '    <span class="status-chip">' + escapeHtml(option.is_active ? 'active' : 'inactive') + '</span>',
-        '  </div>',
-        '  <div class="card-actions">',
-        '    <button class="status-action" type="button" data-edit-option="' + option.id + '">Editar</button>',
-        '    <button class="status-action" type="button" data-delete-option="' + option.id + '">Desactivar</button>',
-        '  </div>',
-        '</article>'
-      ].join('');
-    }).join('');
-  }
-
   async function handleProductOptionSubmit(event) {
     event.preventDefault();
 
     if (!state.selectedProductId) {
-      setMessage('Primero seleccioná un producto para cargar opciones.');
+      const message = 'Primero selecciona un producto para cargar opciones.';
+      setMessage(message);
+      showToast('warning', message);
       return;
     }
 
@@ -599,14 +884,15 @@
     try {
       if (elements.productOptionId.value) {
         await global.AdminApi.updateProductOption(Number.parseInt(elements.productOptionId.value, 10), payload);
+        showToast('success', 'Opcion actualizada.');
       } else {
         await global.AdminApi.createProductOption(state.selectedProductId, payload);
+        showToast('success', 'Opcion creada.');
       }
 
       resetProductOptionForm();
       state.productOptions = await global.AdminApi.getProductOptions(state.selectedProductId);
       renderProductOptions();
-      setMessage('Opciones actualizadas.');
     } catch (error) {
       handleApiError(error);
     }
@@ -632,7 +918,7 @@
       elements.productOptionPriceModifier.value = option.price_modifier || 0;
       elements.productOptionIsRequired.checked = Boolean(option.is_required);
       elements.productOptionIsActive.checked = Boolean(option.is_active);
-      setMessage('Editando opción #' + option.id + '.');
+      setMessage('Editando opcion #' + option.id + '.');
     }
 
     if (deleteButton) {
@@ -640,38 +926,123 @@
         await global.AdminApi.deleteProductOption(Number.parseInt(deleteButton.getAttribute('data-delete-option'), 10));
         state.productOptions = await global.AdminApi.getProductOptions(state.selectedProductId);
         renderProductOptions();
+        showToast('warning', 'Opcion desactivada.');
       } catch (error) {
         handleApiError(error);
       }
     }
   }
 
-  function renderSchedules() {
-    if (state.schedules.length === 0) {
-      elements.schedulesList.innerHTML = '<article class="list-card"><p class="muted">No hay horarios configurados.</p></article>';
-      return;
+  async function handleExpenseSubmit(event) {
+    event.preventDefault();
+
+    const payload = {
+      title: elements.expenseTitle.value.trim(),
+      category: elements.expenseCategory.value.trim() || null,
+      amount: Number(elements.expenseAmount.value),
+      expense_date: elements.expenseDate.value,
+      description: elements.expenseDescription.value.trim() || null
+    };
+
+    try {
+      if (elements.expenseId.value) {
+        await global.AdminApi.updateExpense(Number.parseInt(elements.expenseId.value, 10), payload);
+        showToast('success', 'Gasto actualizado.');
+      } else {
+        await global.AdminApi.createExpense(payload);
+        showToast('success', 'Gasto registrado.');
+      }
+
+      resetExpenseForm();
+      await loadData();
+    } catch (error) {
+      handleApiError(error);
+    }
+  }
+
+  async function handleExpensesListClick(event) {
+    const editButton = event.target.closest('[data-edit-expense]');
+    const deleteButton = event.target.closest('[data-delete-expense]');
+
+    if (editButton) {
+      try {
+        const expense = await global.AdminApi.getExpenseById(Number.parseInt(editButton.getAttribute('data-edit-expense'), 10));
+        elements.expenseId.value = expense.id;
+        elements.expenseTitle.value = expense.title || '';
+        elements.expenseCategory.value = expense.category || '';
+        elements.expenseAmount.value = expense.amount || 0;
+        elements.expenseDate.value = String(expense.expense_date).slice(0, 10);
+        elements.expenseDescription.value = expense.description || '';
+        setActiveTab('expenses');
+        setMessage('Editando gasto #' + expense.id + '.');
+      } catch (error) {
+        handleApiError(error);
+      }
     }
 
-    elements.schedulesList.innerHTML = state.schedules.map(function toCard(schedule) {
-      return [
-        '<article class="list-card">',
-        '  <div class="list-row">',
-        '    <div>',
-        '      <strong>' + escapeHtml(DAY_NAMES[schedule.day_of_week] || schedule.day_of_week) + '</strong>',
-        '      <div class="list-meta">',
-        '        <span>' + escapeHtml(String(schedule.start_time).slice(0, 5) + ' - ' + String(schedule.end_time).slice(0, 5)) + '</span>',
-        '        <span>' + escapeHtml(schedule.fulfillment_type) + '</span>',
-        '      </div>',
-        '    </div>',
-        '    <span class="status-chip">' + escapeHtml(schedule.is_active ? 'active' : 'inactive') + '</span>',
-        '  </div>',
-        '  <div class="card-actions">',
-        '    <button class="status-action" type="button" data-edit-schedule="' + schedule.id + '">Editar</button>',
-        '    <button class="status-action" type="button" data-delete-schedule="' + schedule.id + '">Desactivar</button>',
-        '  </div>',
-        '</article>'
-      ].join('');
-    }).join('');
+    if (deleteButton) {
+      try {
+        await global.AdminApi.deleteExpense(Number.parseInt(deleteButton.getAttribute('data-delete-expense'), 10));
+        await loadData();
+        showToast('warning', 'Gasto eliminado.');
+      } catch (error) {
+        handleApiError(error);
+      }
+    }
+  }
+
+  async function handleCategorySubmit(event) {
+    event.preventDefault();
+
+    const payload = {
+      name: elements.categoryName.value.trim(),
+      description: elements.categoryDescription.value.trim(),
+      is_active: elements.categoryIsActive.checked
+    };
+
+    try {
+      if (elements.categoryId.value) {
+        await global.AdminApi.updateCategory(Number.parseInt(elements.categoryId.value, 10), payload);
+        showToast('success', 'Categoria actualizada.');
+      } else {
+        await global.AdminApi.createCategory(payload);
+        showToast('success', 'Categoria creada.');
+      }
+
+      resetCategoryForm();
+      await loadData();
+    } catch (error) {
+      handleApiError(error);
+    }
+  }
+
+  async function handleCategoriesListClick(event) {
+    const editButton = event.target.closest('[data-edit-category]');
+    const deleteButton = event.target.closest('[data-delete-category]');
+
+    if (editButton) {
+      try {
+        const category = await global.AdminApi.getCategoryById(Number.parseInt(editButton.getAttribute('data-edit-category'), 10));
+        elements.categoryId.value = category.id;
+        elements.categoryName.value = category.name || '';
+        elements.categoryDescription.value = category.description || '';
+        elements.categoryIsActive.checked = Boolean(category.is_active);
+        setActiveTab('categories');
+        setMessage('Editando categoria #' + category.id + '.');
+      } catch (error) {
+        handleApiError(error);
+      }
+    }
+
+    if (deleteButton) {
+      try {
+        await global.AdminApi.deleteCategory(Number.parseInt(deleteButton.getAttribute('data-delete-category'), 10));
+        await loadData();
+        showToast('warning', 'Categoria desactivada.');
+      } catch (error) {
+        handleApiError(error);
+      }
+    }
   }
 
   async function handleScheduleSubmit(event) {
@@ -688,12 +1059,14 @@
     try {
       if (elements.scheduleId.value) {
         await global.AdminApi.updateFulfillmentSchedule(Number.parseInt(elements.scheduleId.value, 10), payload);
+        showToast('success', 'Horario actualizado.');
       } else {
         await global.AdminApi.createFulfillmentSchedule(payload);
+        showToast('success', 'Horario creado.');
       }
 
       resetScheduleForm();
-      await loadDashboardData();
+      await loadData();
     } catch (error) {
       handleApiError(error);
     }
@@ -726,32 +1099,8 @@
     if (deleteButton) {
       try {
         await global.AdminApi.deleteFulfillmentSchedule(Number.parseInt(deleteButton.getAttribute('data-delete-schedule'), 10));
-        await loadDashboardData();
-      } catch (error) {
-        handleApiError(error);
-      }
-    }
-  }
-
-  async function handleCategoriesListClick(event) {
-    const editButton = event.target.closest('[data-edit-category]');
-    const deleteButton = event.target.closest('[data-delete-category]');
-
-    if (editButton) {
-      const category = await global.AdminApi.getCategoryById(Number.parseInt(editButton.getAttribute('data-edit-category'), 10));
-
-      elements.categoryId.value = category.id;
-      elements.categoryName.value = category.name || '';
-      elements.categoryDescription.value = category.description || '';
-      elements.categoryIsActive.checked = Boolean(category.is_active);
-      setActiveTab('categories');
-      setMessage('Editando categoría #' + category.id + '.');
-    }
-
-    if (deleteButton) {
-      try {
-        await global.AdminApi.deleteCategory(Number.parseInt(deleteButton.getAttribute('data-delete-category'), 10));
-        await loadDashboardData();
+        await loadData();
+        showToast('warning', 'Horario desactivado.');
       } catch (error) {
         handleApiError(error);
       }
@@ -780,7 +1129,8 @@
         is_active: elements.settingsIsActive.checked
       });
 
-      await loadDashboardData();
+      await loadData();
+      showToast('success', 'Configuracion actualizada.');
     } catch (error) {
       handleApiError(error);
     }
@@ -790,15 +1140,34 @@
     elements.loginForm.addEventListener('submit', handleLogin);
     elements.logoutButton.addEventListener('click', handleLogout);
     elements.adminTabs.addEventListener('click', handleTabAction);
-    elements.refreshOrdersButton.addEventListener('click', loadDashboardData);
+    elements.refreshDashboardButton.addEventListener('click', loadData);
+    elements.refreshOrdersButton.addEventListener('click', loadData);
+    elements.openNewProductButton.addEventListener('click', function openNewProductForm() {
+      resetProductForm();
+      openProductEditor('create');
+      showToast('info', 'Crea un nuevo producto.');
+    });
     elements.ordersList.addEventListener('click', handleOrdersListClick);
     elements.ordersList.addEventListener('change', handleOrdersListChange);
     elements.productForm.addEventListener('submit', handleProductSubmit);
+    elements.productImageUrl.addEventListener('input', updateProductImagePreview);
+    elements.uploadProductImageButton.addEventListener('click', handleProductImageUpload);
     elements.productsList.addEventListener('click', handleProductsListClick);
-    elements.resetProductFormButton.addEventListener('click', resetProductForm);
+    elements.cancelProductEditButton.addEventListener('click', function cancelProductEdit() {
+      resetProductForm();
+      closeProductEditor();
+      showToast('info', 'Edicion cancelada.');
+    });
     elements.productOptionForm.addEventListener('submit', handleProductOptionSubmit);
     elements.productOptionsList.addEventListener('click', handleProductOptionsListClick);
     elements.resetProductOptionFormButton.addEventListener('click', resetProductOptionForm);
+    elements.closeProductOptionsButton.addEventListener('click', function closeProductOptions() {
+      closeProductOptionsManager();
+      showToast('info', 'Cerraste la gestion de opciones.');
+    });
+    elements.expenseForm.addEventListener('submit', handleExpenseSubmit);
+    elements.expensesList.addEventListener('click', handleExpensesListClick);
+    elements.resetExpenseFormButton.addEventListener('click', resetExpenseForm);
     elements.categoryForm.addEventListener('submit', handleCategorySubmit);
     elements.categoriesList.addEventListener('click', handleCategoriesListClick);
     elements.resetCategoryFormButton.addEventListener('click', resetCategoryForm);
@@ -810,15 +1179,17 @@
 
   async function init() {
     attachEvents();
-    setActiveTab('orders');
+    setActiveTab('dashboard');
     resetCategoryForm();
     resetProductForm();
-    resetProductOptionForm();
+    closeProductEditor();
+    closeProductOptionsManager();
+    resetExpenseForm();
     resetScheduleForm();
 
     if (global.AdminAuth.getToken()) {
       setAuthState(true);
-      await loadDashboardData();
+      await loadData();
     } else {
       setAuthState(false);
     }

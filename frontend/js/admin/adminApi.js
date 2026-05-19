@@ -39,6 +39,41 @@
     return responseBody;
   }
 
+  async function uploadFile(path, file) {
+    const formData = new FormData();
+    const headers = {};
+    const token = global.AdminAuth.getToken();
+
+    if (token) {
+      headers.Authorization = 'Bearer ' + token;
+    }
+
+    formData.append('image', file);
+
+    const response = await fetch(API_BASE_URL + path, {
+      method: 'POST',
+      headers: headers,
+      body: formData
+    });
+    const responseBody = await response.json().catch(function ignoreInvalidJson() {
+      return null;
+    });
+
+    if (response.status === 401) {
+      global.AdminAuth.clearSession();
+      const unauthorizedError = new Error(responseBody && responseBody.error ? responseBody.error : 'authentication required');
+
+      unauthorizedError.status = 401;
+      throw unauthorizedError;
+    }
+
+    if (!response.ok) {
+      throw new Error(responseBody && responseBody.error ? responseBody.error : 'API request failed');
+    }
+
+    return responseBody;
+  }
+
   global.AdminApi = {
     API_BASE_URL,
     login(payload) {
@@ -49,6 +84,32 @@
     },
     getOrders() {
       return request('/api/admin/orders');
+    },
+    getDashboardSummary() {
+      return request('/api/admin/dashboard/summary');
+    },
+    getExpenses() {
+      return request('/api/admin/expenses');
+    },
+    getExpenseById(expenseId) {
+      return request('/api/admin/expenses/' + expenseId);
+    },
+    createExpense(payload) {
+      return request('/api/admin/expenses', {
+        method: 'POST',
+        body: payload
+      });
+    },
+    updateExpense(expenseId, payload) {
+      return request('/api/admin/expenses/' + expenseId, {
+        method: 'PUT',
+        body: payload
+      });
+    },
+    deleteExpense(expenseId) {
+      return request('/api/admin/expenses/' + expenseId, {
+        method: 'DELETE'
+      });
     },
     getOrderById(orderId) {
       return request('/api/admin/orders/' + orderId);
@@ -81,6 +142,9 @@
         method: 'PUT',
         body: payload
       });
+    },
+    uploadProductImage(file) {
+      return uploadFile('/api/admin/uploads/product-image', file);
     },
     deleteProduct(productId) {
       return request('/api/admin/products/' + productId, {

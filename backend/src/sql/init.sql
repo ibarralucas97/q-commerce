@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS fulfillment_schedules (
 CREATE TABLE IF NOT EXISTS expenses (
   id SERIAL PRIMARY KEY,
   title VARCHAR(160) NOT NULL,
+  category VARCHAR(120),
   description TEXT,
   amount NUMERIC(10,2) NOT NULL CHECK (amount >= 0),
   expense_date DATE NOT NULL DEFAULT CURRENT_DATE,

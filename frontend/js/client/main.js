@@ -63,6 +63,12 @@
       .replaceAll("'", '&#39;');
   }
 
+  function showToast(type, message) {
+    if (global.Toast && typeof global.Toast[type] === 'function') {
+      global.Toast[type](message);
+    }
+  }
+
   function getStoreInitials(storeName) {
     if (!storeName) {
       return 'QC';
@@ -95,12 +101,7 @@
 
   function getSelectedDeliveryType() {
     const selectedOption = document.querySelector('input[name="deliveryType"]:checked');
-
-    if (!selectedOption) {
-      return 'pickup';
-    }
-
-    return selectedOption.value;
+    return selectedOption ? selectedOption.value : 'pickup';
   }
 
   function isDeliverySelected() {
@@ -128,10 +129,6 @@
     elements.addressField.classList.toggle('is-hidden', !isDeliverySelected());
   }
 
-  function hasSchedulesForSelectedFulfillment() {
-    return getFilteredSchedules().length > 0;
-  }
-
   function getDayLabel(dayOfWeek) {
     return DAY_NAMES[dayOfWeek] || '';
   }
@@ -152,6 +149,10 @@
     });
   }
 
+  function hasSchedulesForSelectedFulfillment() {
+    return getFilteredSchedules().length > 0;
+  }
+
   function renderScheduleFields() {
     const filteredSchedules = getFilteredSchedules();
     const groupedSchedules = new Map();
@@ -159,7 +160,6 @@
     filteredSchedules.forEach(function groupSchedule(schedule) {
       const dayLabel = getDayLabel(schedule.day_of_week);
       const existing = groupedSchedules.get(dayLabel) || [];
-
       existing.push(schedule);
       groupedSchedules.set(dayLabel, existing);
     });
@@ -172,11 +172,10 @@
     }
 
     elements.scheduleFields.classList.remove('is-hidden');
-    elements.fulfillmentDay.innerHTML = Array.from(groupedSchedules.keys())
-      .map(function toOption(dayLabel) {
-        return '<option value="' + escapeHtml(dayLabel) + '">' + escapeHtml(dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1)) + '</option>';
-      })
-      .join('');
+    elements.fulfillmentDay.innerHTML = Array.from(groupedSchedules.keys()).map(function toOption(dayLabel) {
+      const visibleDay = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
+      return '<option value="' + escapeHtml(dayLabel) + '">' + escapeHtml(visibleDay) + '</option>';
+    }).join('');
 
     renderScheduleTimeOptions();
   }
@@ -187,17 +186,15 @@
       return getDayLabel(schedule.day_of_week) === selectedDay;
     });
 
-    elements.fulfillmentTimeRange.innerHTML = schedules
-      .map(function toOption(schedule) {
-        const range = formatScheduleRange(schedule);
-
-        return '<option value="' + escapeHtml(range) + '">' + escapeHtml(range) + '</option>';
-      })
-      .join('');
+    elements.fulfillmentTimeRange.innerHTML = schedules.map(function toOption(schedule) {
+      const range = formatScheduleRange(schedule);
+      return '<option value="' + escapeHtml(range) + '">' + escapeHtml(range) + '</option>';
+    }).join('');
   }
 
   function setOptionModalOpen(isOpen) {
     elements.optionModal.classList.toggle('is-hidden', !isOpen);
+    elements.floatingCartButton.classList.toggle('is-hidden', isOpen || global.CartStore.getSummary(state.settings ? state.settings.delivery_fee : 0, isDeliverySelected()).itemCount === 0);
     document.body.classList.toggle('modal-open', isOpen);
   }
 
@@ -205,8 +202,8 @@
     state.pendingProduct = product;
     state.selectedOptionId = null;
     elements.optionModalTitle.textContent = product.name;
-    elements.optionModalDescription.textContent = product.description || 'Elegí la opción que corresponde para este producto.';
-    elements.optionModalHint.textContent = 'Seleccioná una opción para agregar el producto al carrito.';
+    elements.optionModalDescription.textContent = product.description || 'Elegi la opcion que corresponde para este producto.';
+    elements.optionModalHint.textContent = 'Selecciona una opcion para agregar el producto al carrito.';
     elements.optionList.innerHTML = (product.options || []).map(function toOption(option) {
       const priceModifier = Number(option.price_modifier) || 0;
       const modifierLabel = priceModifier === 0 ? 'Sin cambio de precio' : (priceModifier > 0 ? '+' : '') + formatMoney(priceModifier);
@@ -278,49 +275,34 @@
       pieces.push('Retiro en local');
     }
 
-    if (pieces.length === 0) {
-      return 'Consultar modalidades disponibles';
-    }
-
-    return pieces.join(' · ');
+    return pieces.length === 0 ? 'Consultar modalidades disponibles' : pieces.join(' · ');
   }
 
   function renderCategoryFilters() {
     const activeCategoryId = String(state.activeCategoryId);
     const buttons = [{ id: 'all', name: 'Todo' }].concat(
-      state.categories
-        .filter(function onlyActive(category) {
-          return category.is_active !== false;
-        })
-        .map(function toFilter(category) {
-          return {
-            id: String(category.id),
-            name: category.name
-          };
-        })
+      state.categories.filter(function onlyActive(category) {
+        return category.is_active !== false;
+      }).map(function toFilter(category) {
+        return { id: String(category.id), name: category.name };
+      })
     );
 
-    elements.categoryFilters.innerHTML = buttons
-      .map(function toButton(category) {
-        const activeClass = category.id === activeCategoryId ? ' is-active' : '';
-
-        return '<button class="filter-chip' + activeClass + '" type="button" data-category-filter="' + escapeHtml(category.id) + '">' + escapeHtml(category.name) + '</button>';
-      })
-      .join('');
+    elements.categoryFilters.innerHTML = buttons.map(function toButton(category) {
+      const activeClass = category.id === activeCategoryId ? ' is-active' : '';
+      return '<button class="filter-chip' + activeClass + '" type="button" data-category-filter="' + escapeHtml(category.id) + '">' + escapeHtml(category.name) + '</button>';
+    }).join('');
   }
 
   function getFilteredProducts() {
     return state.products.filter(function filterProduct(product) {
       const matchesCategory = state.activeCategoryId === 'all' || String(product.category_id) === String(state.activeCategoryId);
-      const isActive = product.is_active !== false;
-
-      return matchesCategory && isActive;
+      return matchesCategory && product.is_active !== false;
     });
   }
 
   function renderProducts() {
     const filteredProducts = getFilteredProducts();
-
     elements.productCount.textContent = filteredProducts.length + ' producto' + (filteredProducts.length === 1 ? '' : 's');
 
     if (filteredProducts.length === 0) {
@@ -331,41 +313,39 @@
     }
 
     elements.catalogStatus.classList.add('is-hidden');
-    elements.productGrid.innerHTML = filteredProducts
-      .map(function toCard(product) {
-        const stockLabel = product.stock === null ? 'Stock a confirmar' : 'Stock: ' + product.stock;
-        const imageMarkup = product.image_url
-          ? '<img src="' + escapeHtml(product.image_url) + '" alt="' + escapeHtml(product.name) + '" loading="lazy" />'
-          : '<div class="product-card__image-placeholder"></div>';
+    elements.productGrid.innerHTML = filteredProducts.map(function toCard(product) {
+      const stockLabel = product.stock === null ? 'Stock a confirmar' : 'Stock: ' + product.stock;
+      const imageMarkup = product.image_url
+        ? '<img src="' + escapeHtml(product.image_url) + '" alt="' + escapeHtml(product.name) + '" loading="lazy" />'
+        : '<div class="product-card__image-placeholder"></div>';
 
-        return [
-          '<article class="product-card">',
-          '  <div class="product-card__image">' + imageMarkup + '</div>',
-          '  <div>',
-          '    <div class="product-card__title-row">',
-          '      <div>',
-          '        <span class="product-card__category">' + escapeHtml(product.category_name || 'Sin categoria') + '</span>',
-          '        <h3 class="product-card__title">' + escapeHtml(product.name) + '</h3>',
-          '      </div>',
-          '      <span class="price-pill">' + escapeHtml(formatMoney(product.price)) + '</span>',
-          '    </div>',
-          '    <p class="product-card__description">' + escapeHtml(product.description || 'Producto disponible para pedir.') + '</p>',
-          '  </div>',
-          '  <div class="product-card__footer">',
-          '    <span class="stock-pill">' + escapeHtml(stockLabel) + '</span>',
-          '    <button class="primary-button" type="button" data-add-product="' + product.id + '">Agregar</button>',
-          '  </div>',
-          '</article>'
-        ].join('');
-      })
-      .join('');
+      return [
+        '<article class="product-card">',
+        '  <div class="product-card__image">' + imageMarkup + '</div>',
+        '  <div>',
+        '    <div class="product-card__title-row">',
+        '      <div>',
+        '        <span class="product-card__category">' + escapeHtml(product.category_name || 'Sin categoria') + '</span>',
+        '        <h3 class="product-card__title">' + escapeHtml(product.name) + '</h3>',
+        '      </div>',
+        '      <span class="price-pill">' + escapeHtml(formatMoney(product.price)) + '</span>',
+        '    </div>',
+        '    <p class="product-card__description">' + escapeHtml(product.description || 'Producto disponible para pedir.') + '</p>',
+        '  </div>',
+        '  <div class="product-card__footer">',
+        '    <span class="stock-pill">' + escapeHtml(stockLabel) + '</span>',
+        '    <button class="primary-button" type="button" data-add-product="' + product.id + '">Agregar</button>',
+        '  </div>',
+        '</article>'
+      ].join('');
+    }).join('');
   }
 
   function renderCart() {
     const summary = global.CartStore.getSummary(state.settings ? state.settings.delivery_fee : 0, isDeliverySelected());
 
     elements.floatingCartCount.textContent = String(summary.itemCount);
-    elements.floatingCartButton.classList.toggle('is-hidden', state.cartOpen || summary.itemCount === 0);
+    elements.floatingCartButton.classList.toggle('is-hidden', state.cartOpen || summary.itemCount === 0 || !elements.optionModal.classList.contains('is-hidden'));
     elements.subtotalAmount.textContent = formatMoney(summary.subtotal);
     elements.deliveryAmount.textContent = formatMoney(summary.delivery);
     elements.totalAmount.textContent = formatMoney(summary.total);
@@ -377,29 +357,27 @@
       return;
     }
 
-    elements.cartItems.innerHTML = summary.items
-      .map(function toCartItem(item) {
-        return [
-          '<article class="cart-line">',
-          '  <div class="cart-line__top">',
-          '    <div>',
-          '      <h3 class="cart-line__title">' + escapeHtml(item.name) + '</h3>',
-          '      <p class="cart-line__meta">' + escapeHtml(item.category_name || 'Sin categoria') + (item.option_name ? ' · ' + escapeHtml(item.option_name) : '') + '</p>',
-          '    </div>',
-          '    <button class="remove-button" type="button" aria-label="Eliminar producto" data-remove-product="' + escapeHtml(item.line_id) + '">×</button>',
-          '  </div>',
-          '  <div class="cart-line__bottom">',
-          '    <div class="qty-controls">',
-          '      <button class="qty-button" type="button" data-decrease-product="' + escapeHtml(item.line_id) + '">-</button>',
-          '      <strong>' + item.quantity + '</strong>',
-          '      <button class="qty-button" type="button" data-increase-product="' + escapeHtml(item.line_id) + '">+</button>',
-          '    </div>',
-          '    <strong>' + escapeHtml(formatMoney(item.price * item.quantity)) + '</strong>',
-          '  </div>',
-          '</article>'
-        ].join('');
-      })
-      .join('');
+    elements.cartItems.innerHTML = summary.items.map(function toCartItem(item) {
+      return [
+        '<article class="cart-line">',
+        '  <div class="cart-line__top">',
+        '    <div>',
+        '      <h3 class="cart-line__title">' + escapeHtml(item.name) + '</h3>',
+        '      <p class="cart-line__meta">' + escapeHtml(item.category_name || 'Sin categoria') + (item.option_name ? ' · ' + escapeHtml(item.option_name) : '') + '</p>',
+        '    </div>',
+        '    <button class="remove-button" type="button" aria-label="Eliminar producto" data-remove-product="' + escapeHtml(item.line_id) + '">×</button>',
+        '  </div>',
+        '  <div class="cart-line__bottom">',
+        '    <div class="qty-controls">',
+        '      <button class="qty-button" type="button" data-decrease-product="' + escapeHtml(item.line_id) + '">-</button>',
+        '      <strong>' + item.quantity + '</strong>',
+        '      <button class="qty-button" type="button" data-increase-product="' + escapeHtml(item.line_id) + '">+</button>',
+        '    </div>',
+        '    <strong>' + escapeHtml(formatMoney(item.price * item.quantity)) + '</strong>',
+        '  </div>',
+        '</article>'
+      ].join('');
+    }).join('');
   }
 
   function syncDeliveryOptions() {
@@ -444,12 +422,11 @@
 
     summary.items.forEach(function appendItem(item) {
       const optionSuffix = item.option_name ? ' [' + item.option_name + ']' : '';
-
       lines.push('- ' + item.quantity + ' x ' + item.name + optionSuffix + ' (' + formatMoney(item.price * item.quantity) + ')');
     });
 
     if (formData.fulfillmentDay && formData.fulfillmentTimeRange) {
-      lines.push('*Día:* ' + formData.fulfillmentDay);
+      lines.push('*Dia:* ' + formData.fulfillmentDay);
       lines.push('*Horario:* ' + formData.fulfillmentTimeRange);
     }
 
@@ -472,6 +449,7 @@
 
     if (summary.itemCount === 0) {
       elements.checkoutHint.textContent = 'Tu carrito esta vacio.';
+      showToast('warning', 'Debes agregar productos al carrito.');
       return;
     }
 
@@ -486,22 +464,26 @@
     };
 
     if (!formData.name) {
-      elements.checkoutHint.textContent = 'Ingresá tu nombre para continuar.';
+      elements.checkoutHint.textContent = 'Ingresa tu nombre para continuar.';
+      showToast('warning', 'Completa tu nombre.');
       return;
     }
 
     if (!formData.phone) {
-      elements.checkoutHint.textContent = 'Ingresá un telefono de contacto.';
+      elements.checkoutHint.textContent = 'Ingresa un telefono de contacto.';
+      showToast('warning', 'Completa tu telefono.');
       return;
     }
 
     if (formData.deliveryType === 'delivery' && !formData.address) {
-      elements.checkoutHint.textContent = 'Ingresá la direccion para delivery.';
+      elements.checkoutHint.textContent = 'Ingresa la direccion para delivery.';
+      showToast('warning', 'Completa la direccion para delivery.');
       return;
     }
 
     if (hasSchedulesForSelectedFulfillment() && (!formData.fulfillmentDay || !formData.fulfillmentTimeRange)) {
-      elements.checkoutHint.textContent = 'Seleccioná día y horario para continuar.';
+      elements.checkoutHint.textContent = 'Selecciona dia y horario para continuar.';
+      showToast('warning', 'Selecciona dia y horario.');
       return;
     }
 
@@ -509,6 +491,7 @@
 
     if (!whatsappNumber) {
       elements.checkoutHint.textContent = 'No hay un numero de WhatsApp configurado para esta tienda.';
+      showToast('error', 'La tienda no tiene WhatsApp configurado.');
       return;
     }
 
@@ -538,18 +521,18 @@
         orderId: createdOrder.order.id,
         subtotal: createdOrder.order.subtotal,
         deliveryFee: createdOrder.order.delivery_fee,
-        total: createdOrder.order.total,
-        fulfillmentDay: formData.fulfillmentDay,
-        fulfillmentTimeRange: formData.fulfillmentTimeRange
+        total: createdOrder.order.total
       });
       const whatsappUrl = 'https://wa.me/' + whatsappNumber + '?text=' + encodeURIComponent(message);
 
       elements.checkoutHint.textContent = 'Pedido guardado. Abriendo WhatsApp...';
+      showToast('success', 'Pedido enviado correctamente.');
       global.CartStore.clear();
-      window.location.href = whatsappUrl;
+      global.location.href = whatsappUrl;
     } catch (error) {
       console.error('Error creating order from storefront:', error);
       elements.checkoutHint.textContent = error.message || 'No se pudo guardar el pedido.';
+      showToast('error', error.message || 'No se pudo guardar el pedido.');
     } finally {
       setCheckoutSubmitting(false);
     }
@@ -590,8 +573,9 @@
       }
 
       global.CartStore.add(product, null);
+      showToast('success', 'Producto agregado al carrito.');
 
-      if (window.innerWidth < 720) {
+      if (global.innerWidth < 720) {
         setCartOpen(true);
       }
     });
@@ -611,6 +595,7 @@
 
       if (removeButton) {
         global.CartStore.remove(removeButton.getAttribute('data-remove-product'));
+        showToast('info', 'Producto eliminado del carrito.');
       }
     });
 
@@ -645,7 +630,8 @@
       }
 
       if (!state.selectedOptionId) {
-        elements.optionModalHint.textContent = 'Seleccioná una opción para continuar.';
+        elements.optionModalHint.textContent = 'Selecciona una opcion para continuar.';
+        showToast('warning', 'Selecciona una opcion para continuar.');
         return;
       }
 
@@ -654,9 +640,10 @@
       });
 
       global.CartStore.add(state.pendingProduct, selectedOption || null);
+      showToast('success', 'Producto agregado al carrito.');
       closeOptionModal();
 
-      if (window.innerWidth < 720) {
+      if (global.innerWidth < 720) {
         setCartOpen(true);
       }
     });
@@ -693,7 +680,8 @@
     } catch (error) {
       console.error('Error loading storefront:', error);
       elements.catalogStatus.classList.remove('is-hidden');
-      elements.catalogStatus.textContent = 'No se pudo cargar el catalogo. Revisá que el backend esté corriendo y que API_BASE_URL apunte al host correcto.';
+      elements.catalogStatus.textContent = 'No se pudo cargar el catalogo. Revisa que el backend este corriendo y que API_BASE_URL apunte al host correcto.';
+      showToast('error', 'No se pudo cargar el catalogo.');
     }
   }
 
