@@ -72,15 +72,103 @@
           </section>
 
           <section class="panel-section is-hidden" data-section="orders">
-            <div class="section-header">
+            <div class="section-header product-section-header">
               <div>
                 <p class="eyebrow">Operacion</p>
                 <h2>Pedidos</h2>
+                <p class="muted">Revisa pedidos recientes y carga pedidos manuales cuando haga falta.</p>
               </div>
-              <button class="secondary-button" id="refreshOrdersButton" type="button">Actualizar</button>
+              <div class="form-actions">
+                <button class="primary-button" id="openManualOrderButton" type="button">+ Pedido manual</button>
+                <button class="secondary-button" id="refreshOrdersButton" type="button">Actualizar</button>
+              </div>
             </div>
 
             <div class="card-list" id="ordersList"></div>
+
+            <article class="editor-card is-hidden" id="manualOrderCard">
+              <form class="stack-form" id="manualOrderForm">
+                <div class="section-header section-header--compact">
+                  <div>
+                    <p class="eyebrow">Carga manual</p>
+                    <h3 id="manualOrderTitle">Nuevo pedido manual</h3>
+                  </div>
+                  <div class="form-actions">
+                    <button class="primary-button" id="manualOrderSubmitButton" type="submit">Crear pedido</button>
+                    <button class="ghost-button" id="cancelManualOrderButton" type="button">Cancelar</button>
+                  </div>
+                </div>
+
+                <div class="two-columns">
+                  <label class="field">
+                    <span>Nombre del cliente</span>
+                    <input id="manualOrderCustomerName" type="text" required />
+                  </label>
+                  <label class="field">
+                    <span>Telefono del cliente</span>
+                    <input id="manualOrderCustomerPhone" type="text" required />
+                  </label>
+                </div>
+
+                <div class="two-columns">
+                  <label class="field">
+                    <span>Tipo de entrega</span>
+                    <select id="manualOrderDeliveryType">
+                      <option value="delivery">Delivery</option>
+                      <option value="pickup">Retiro</option>
+                    </select>
+                  </label>
+                  <label class="field is-hidden" id="manualOrderAddressField">
+                    <span>Direccion</span>
+                    <input id="manualOrderAddress" type="text" />
+                  </label>
+                </div>
+
+                <label class="field">
+                  <span>Observaciones</span>
+                  <textarea id="manualOrderNotes" rows="3"></textarea>
+                </label>
+
+                <div class="two-columns is-hidden" id="manualOrderScheduleFields">
+                  <label class="field">
+                    <span>Dia</span>
+                    <select id="manualOrderFulfillmentDay"></select>
+                  </label>
+                  <label class="field">
+                    <span>Horario</span>
+                    <select id="manualOrderFulfillmentTimeRange"></select>
+                  </label>
+                </div>
+
+                <div class="editor-card manual-order-items-card">
+                  <div class="section-header section-header--compact">
+                    <div>
+                      <p class="eyebrow">Items</p>
+                      <h3>Productos del pedido</h3>
+                    </div>
+                    <button class="secondary-button" id="addManualOrderItemButton" type="button">+ Agregar producto</button>
+                  </div>
+
+                  <div class="card-list" id="manualOrderItemsList"></div>
+                </div>
+
+                <article class="summary-card">
+                  <p class="eyebrow">Resumen</p>
+                  <div class="manual-order-summary">
+                    <span>Subtotal</span>
+                    <strong id="manualOrderSubtotal">ARS 0</strong>
+                  </div>
+                  <div class="manual-order-summary">
+                    <span>Delivery</span>
+                    <strong id="manualOrderDeliveryFee">ARS 0</strong>
+                  </div>
+                  <div class="manual-order-summary manual-order-summary--total">
+                    <span>Total estimado</span>
+                    <strong id="manualOrderTotal">ARS 0</strong>
+                  </div>
+                </article>
+              </form>
+            </article>
 
             <article class="detail-card is-hidden" id="orderDetailCard">
               <div class="section-header">
@@ -224,17 +312,31 @@
           </section>
 
           <section class="panel-section is-hidden" data-section="expenses">
-            <div class="section-header">
+            <div class="section-header product-section-header">
               <div>
                 <p class="eyebrow">Costos</p>
-                <h2>Gastos</h2>
+                <h2>Mis Gastos</h2>
+                <p class="muted">Registra y controla los gastos del negocio.</p>
               </div>
+              <button class="primary-button" id="openExpenseEditorButton" type="button">+ Nuevo gasto</button>
             </div>
 
             <div class="workspace-grid">
               <div class="workspace-main">
-                <form class="editor-card" id="expenseForm">
+                <article class="editor-card is-hidden" id="expenseEditorCard">
+                  <form class="stack-form" id="expenseForm">
                   <input id="expenseId" type="hidden" />
+
+                  <div class="section-header section-header--compact">
+                    <div>
+                      <p class="eyebrow">Editor</p>
+                      <h3 id="expenseEditorTitle">Nuevo gasto</h3>
+                    </div>
+                    <div class="form-actions">
+                      <button class="primary-button" id="expenseSubmitButton" type="submit">Guardar gasto</button>
+                      <button class="ghost-button" id="cancelExpenseEditButton" type="button">Cancelar</button>
+                    </div>
+                  </div>
 
                   <div class="two-columns">
                     <label class="field">
@@ -262,12 +364,8 @@
                     <span>Descripcion</span>
                     <textarea id="expenseDescription" rows="3"></textarea>
                   </label>
-
-                  <div class="form-actions">
-                    <button class="primary-button" type="submit">Guardar gasto</button>
-                    <button class="ghost-button" id="resetExpenseFormButton" type="button">Nuevo</button>
-                  </div>
-                </form>
+                  </form>
+                </article>
               </div>
 
               <div class="workspace-side">
@@ -282,15 +380,31 @@
           </section>
 
           <section class="panel-section is-hidden" data-section="schedules">
-            <div class="section-header">
+            <div class="section-header product-section-header">
               <div>
                 <p class="eyebrow">Disponibilidad</p>
-                <h2>Horarios</h2>
+                <h2>Horarios de atencion</h2>
+                <p class="muted">Defini dias y rangos horarios para delivery o retiro.</p>
               </div>
+              <button class="primary-button" id="openScheduleEditorButton" type="button">+ Nuevo horario</button>
             </div>
 
-            <form class="editor-card" id="scheduleForm">
+            <div class="card-list" id="schedulesList"></div>
+
+            <article class="editor-card is-hidden" id="scheduleEditorCard">
+            <form class="stack-form" id="scheduleForm">
               <input id="scheduleId" type="hidden" />
+
+              <div class="section-header section-header--compact">
+                <div>
+                  <p class="eyebrow">Editor</p>
+                  <h3 id="scheduleEditorTitle">Nuevo horario</h3>
+                </div>
+                <div class="form-actions">
+                  <button class="primary-button" id="scheduleSubmitButton" type="submit">Guardar horario</button>
+                  <button class="ghost-button" id="cancelScheduleEditButton" type="button">Cancelar</button>
+                </div>
+              </div>
 
               <div class="two-columns">
                 <label class="field">
@@ -331,26 +445,36 @@
                 <input id="scheduleIsActive" type="checkbox" checked />
                 <span>Horario activo</span>
               </label>
-
-              <div class="form-actions">
-                <button class="primary-button" type="submit">Guardar horario</button>
-                <button class="ghost-button" id="resetScheduleFormButton" type="button">Nuevo</button>
-              </div>
             </form>
-
-            <div class="card-list" id="schedulesList"></div>
+            </article>
           </section>
 
           <section class="panel-section is-hidden" data-section="categories">
-            <div class="section-header">
+            <div class="section-header product-section-header">
               <div>
                 <p class="eyebrow">Organizacion</p>
-                <h2>Categorias</h2>
+                <h2>Mis Categorias</h2>
+                <p class="muted">Organiza los productos del catalogo.</p>
               </div>
+              <button class="primary-button" id="openCategoryEditorButton" type="button">+ Nueva categoria</button>
             </div>
 
-            <form class="editor-card" id="categoryForm">
+            <div class="card-list" id="categoriesList"></div>
+
+            <article class="editor-card is-hidden" id="categoryEditorCard">
+            <form class="stack-form" id="categoryForm">
               <input id="categoryId" type="hidden" />
+
+              <div class="section-header section-header--compact">
+                <div>
+                  <p class="eyebrow">Editor</p>
+                  <h3 id="categoryEditorTitle">Nueva categoria</h3>
+                </div>
+                <div class="form-actions">
+                  <button class="primary-button" id="categorySubmitButton" type="submit">Crear categoria</button>
+                  <button class="ghost-button" id="cancelCategoryEditButton" type="button">Cancelar</button>
+                </div>
+              </div>
 
               <label class="field">
                 <span>Nombre</span>
@@ -366,14 +490,8 @@
                 <input id="categoryIsActive" type="checkbox" checked />
                 <span>Categoria activa</span>
               </label>
-
-              <div class="form-actions">
-                <button class="primary-button" type="submit">Guardar categoria</button>
-                <button class="ghost-button" id="resetCategoryFormButton" type="button">Nueva</button>
-              </div>
             </form>
-
-            <div class="card-list" id="categoriesList"></div>
+            </article>
           </section>
 
           <section class="panel-section is-hidden" data-section="settings">

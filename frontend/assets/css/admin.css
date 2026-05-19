@@ -374,6 +374,11 @@ button {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.36);
 }
 
+.editor-card.is-editing {
+  border-color: rgba(244, 215, 161, 0.22);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.36);
+}
+
 .workspace-grid {
   display: grid;
   gap: 1rem;
@@ -465,6 +470,41 @@ button {
   border-radius: 14px;
   font-size: 0.88rem;
   font-weight: 600;
+}
+
+.manual-order-items-card {
+  margin: 0;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.manual-order-line {
+  gap: 0.9rem;
+}
+
+.manual-order-line__meta {
+  display: grid;
+  align-content: end;
+  gap: 0.3rem;
+  color: var(--muted);
+}
+
+.manual-order-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  color: var(--muted);
+}
+
+.manual-order-summary--total {
+  padding-top: 0.75rem;
+  margin-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.manual-order-summary strong,
+.manual-order-line__meta strong {
+  color: var(--text);
 }
 
 .toast-root {
@@ -563,6 +603,10 @@ button {
   .product-admin-card .admin-product-action-btn {
     flex: 1 1 calc(33.333% - 0.4rem);
     justify-content: center;
+  }
+
+  .manual-order-line__meta {
+    align-content: start;
   }
 }
 

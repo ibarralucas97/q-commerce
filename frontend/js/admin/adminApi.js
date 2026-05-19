@@ -114,6 +114,12 @@
     getOrderById(orderId) {
       return request('/api/admin/orders/' + orderId);
     },
+    createOrder(payload) {
+      return request('/api/orders', {
+        method: 'POST',
+        body: payload
+      });
+    },
     updateOrderStatus(orderId, status) {
       return request('/api/admin/orders/' + orderId + '/status', {
         method: 'PUT',

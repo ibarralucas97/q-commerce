@@ -16,7 +16,15 @@
     selectedProductName: '',
     isProductEditorOpen: false,
     productEditorMode: 'create',
-    isProductOptionsOpen: false
+    isProductOptionsOpen: false,
+    isExpenseEditorOpen: false,
+    expenseEditorMode: 'create',
+    isScheduleEditorOpen: false,
+    scheduleEditorMode: 'create',
+    isCategoryEditorOpen: false,
+    categoryEditorMode: 'create',
+    isManualOrderOpen: false,
+    manualOrderItems: []
   };
 
   const elements = {
@@ -35,7 +43,27 @@
     refreshDashboardButton: document.getElementById('refreshDashboardButton'),
     dashboardSummary: document.getElementById('dashboardSummary'),
     refreshOrdersButton: document.getElementById('refreshOrdersButton'),
+    openManualOrderButton: document.getElementById('openManualOrderButton'),
     ordersList: document.getElementById('ordersList'),
+    manualOrderCard: document.getElementById('manualOrderCard'),
+    manualOrderForm: document.getElementById('manualOrderForm'),
+    manualOrderTitle: document.getElementById('manualOrderTitle'),
+    manualOrderSubmitButton: document.getElementById('manualOrderSubmitButton'),
+    cancelManualOrderButton: document.getElementById('cancelManualOrderButton'),
+    manualOrderCustomerName: document.getElementById('manualOrderCustomerName'),
+    manualOrderCustomerPhone: document.getElementById('manualOrderCustomerPhone'),
+    manualOrderDeliveryType: document.getElementById('manualOrderDeliveryType'),
+    manualOrderAddressField: document.getElementById('manualOrderAddressField'),
+    manualOrderAddress: document.getElementById('manualOrderAddress'),
+    manualOrderNotes: document.getElementById('manualOrderNotes'),
+    manualOrderScheduleFields: document.getElementById('manualOrderScheduleFields'),
+    manualOrderFulfillmentDay: document.getElementById('manualOrderFulfillmentDay'),
+    manualOrderFulfillmentTimeRange: document.getElementById('manualOrderFulfillmentTimeRange'),
+    addManualOrderItemButton: document.getElementById('addManualOrderItemButton'),
+    manualOrderItemsList: document.getElementById('manualOrderItemsList'),
+    manualOrderSubtotal: document.getElementById('manualOrderSubtotal'),
+    manualOrderDeliveryFee: document.getElementById('manualOrderDeliveryFee'),
+    manualOrderTotal: document.getElementById('manualOrderTotal'),
     orderDetailCard: document.getElementById('orderDetailCard'),
     orderDetailTitle: document.getElementById('orderDetailTitle'),
     orderDetailBody: document.getElementById('orderDetailBody'),
@@ -80,16 +108,24 @@
     expenseAmount: document.getElementById('expenseAmount'),
     expenseDate: document.getElementById('expenseDate'),
     expenseDescription: document.getElementById('expenseDescription'),
+    openExpenseEditorButton: document.getElementById('openExpenseEditorButton'),
+    expenseEditorCard: document.getElementById('expenseEditorCard'),
+    expenseEditorTitle: document.getElementById('expenseEditorTitle'),
+    expenseSubmitButton: document.getElementById('expenseSubmitButton'),
+    cancelExpenseEditButton: document.getElementById('cancelExpenseEditButton'),
     expensesList: document.getElementById('expensesList'),
     expensesSummaryAmount: document.getElementById('expensesSummaryAmount'),
-    resetExpenseFormButton: document.getElementById('resetExpenseFormButton'),
     categoryForm: document.getElementById('categoryForm'),
     categoryId: document.getElementById('categoryId'),
     categoryName: document.getElementById('categoryName'),
     categoryDescription: document.getElementById('categoryDescription'),
     categoryIsActive: document.getElementById('categoryIsActive'),
+    openCategoryEditorButton: document.getElementById('openCategoryEditorButton'),
+    categoryEditorCard: document.getElementById('categoryEditorCard'),
+    categoryEditorTitle: document.getElementById('categoryEditorTitle'),
+    categorySubmitButton: document.getElementById('categorySubmitButton'),
+    cancelCategoryEditButton: document.getElementById('cancelCategoryEditButton'),
     categoriesList: document.getElementById('categoriesList'),
-    resetCategoryFormButton: document.getElementById('resetCategoryFormButton'),
     scheduleForm: document.getElementById('scheduleForm'),
     scheduleId: document.getElementById('scheduleId'),
     scheduleDayOfWeek: document.getElementById('scheduleDayOfWeek'),
@@ -97,8 +133,12 @@
     scheduleEndTime: document.getElementById('scheduleEndTime'),
     scheduleFulfillmentType: document.getElementById('scheduleFulfillmentType'),
     scheduleIsActive: document.getElementById('scheduleIsActive'),
+    openScheduleEditorButton: document.getElementById('openScheduleEditorButton'),
+    scheduleEditorCard: document.getElementById('scheduleEditorCard'),
+    scheduleEditorTitle: document.getElementById('scheduleEditorTitle'),
+    scheduleSubmitButton: document.getElementById('scheduleSubmitButton'),
+    cancelScheduleEditButton: document.getElementById('cancelScheduleEditButton'),
     schedulesList: document.getElementById('schedulesList'),
-    resetScheduleFormButton: document.getElementById('resetScheduleFormButton'),
     settingsForm: document.getElementById('settingsForm'),
     settingsStoreName: document.getElementById('settingsStoreName'),
     settingsDescription: document.getElementById('settingsDescription'),
@@ -243,6 +283,66 @@
     syncProductEditorUi();
   }
 
+  function syncExpenseEditorUi() {
+    elements.expenseEditorCard.classList.toggle('is-hidden', !state.isExpenseEditorOpen);
+    elements.expenseEditorCard.classList.toggle('is-editing', state.expenseEditorMode === 'edit');
+    elements.expenseEditorTitle.textContent = state.expenseEditorMode === 'edit' ? 'Editar gasto' : 'Nuevo gasto';
+    elements.expenseSubmitButton.textContent = state.expenseEditorMode === 'edit' ? 'Guardar cambios' : 'Guardar gasto';
+  }
+
+  function openExpenseEditor(mode) {
+    state.isExpenseEditorOpen = true;
+    state.expenseEditorMode = mode;
+    syncExpenseEditorUi();
+    scrollToElement(elements.expenseEditorCard);
+  }
+
+  function closeExpenseEditor() {
+    state.isExpenseEditorOpen = false;
+    state.expenseEditorMode = 'create';
+    syncExpenseEditorUi();
+  }
+
+  function syncScheduleEditorUi() {
+    elements.scheduleEditorCard.classList.toggle('is-hidden', !state.isScheduleEditorOpen);
+    elements.scheduleEditorCard.classList.toggle('is-editing', state.scheduleEditorMode === 'edit');
+    elements.scheduleEditorTitle.textContent = state.scheduleEditorMode === 'edit' ? 'Editar horario' : 'Nuevo horario';
+    elements.scheduleSubmitButton.textContent = state.scheduleEditorMode === 'edit' ? 'Guardar cambios' : 'Guardar horario';
+  }
+
+  function openScheduleEditor(mode) {
+    state.isScheduleEditorOpen = true;
+    state.scheduleEditorMode = mode;
+    syncScheduleEditorUi();
+    scrollToElement(elements.scheduleEditorCard);
+  }
+
+  function closeScheduleEditor() {
+    state.isScheduleEditorOpen = false;
+    state.scheduleEditorMode = 'create';
+    syncScheduleEditorUi();
+  }
+
+  function syncCategoryEditorUi() {
+    elements.categoryEditorCard.classList.toggle('is-hidden', !state.isCategoryEditorOpen);
+    elements.categoryEditorCard.classList.toggle('is-editing', state.categoryEditorMode === 'edit');
+    elements.categoryEditorTitle.textContent = state.categoryEditorMode === 'edit' ? 'Editar categoría' : 'Nueva categoría';
+    elements.categorySubmitButton.textContent = state.categoryEditorMode === 'edit' ? 'Guardar cambios' : 'Crear categoría';
+  }
+
+  function openCategoryEditor(mode) {
+    state.isCategoryEditorOpen = true;
+    state.categoryEditorMode = mode;
+    syncCategoryEditorUi();
+    scrollToElement(elements.categoryEditorCard);
+  }
+
+  function closeCategoryEditor() {
+    state.isCategoryEditorOpen = false;
+    state.categoryEditorMode = 'create';
+    syncCategoryEditorUi();
+  }
+
   function syncProductOptionsUi() {
     elements.productOptionsCard.classList.toggle('is-hidden', !state.isProductOptionsOpen);
     elements.productOptionsTitle.textContent = state.selectedProductName
@@ -265,6 +365,204 @@
     elements.productOptionContext.textContent = 'Selecciona un producto para gestionar sus opciones.';
     syncProductOptionsUi();
     renderProductOptions();
+  }
+
+  function getManualScheduleLabel(schedule) {
+    return DAY_NAMES[schedule.day_of_week] + ' · ' + String(schedule.start_time).slice(0, 5) + ' - ' + String(schedule.end_time).slice(0, 5);
+  }
+
+  function getManualOrderFilteredSchedules() {
+    const deliveryType = elements.manualOrderDeliveryType.value;
+
+    return state.schedules.filter(function filterSchedule(schedule) {
+      return Boolean(schedule.is_active) && (schedule.fulfillment_type === 'both' || schedule.fulfillment_type === deliveryType);
+    });
+  }
+
+  function hasManualOrderSchedules() {
+    return getManualOrderFilteredSchedules().length > 0;
+  }
+
+  function updateManualOrderAddressVisibility() {
+    const isDelivery = elements.manualOrderDeliveryType.value === 'delivery';
+    elements.manualOrderAddressField.classList.toggle('is-hidden', !isDelivery);
+  }
+
+  function renderManualOrderScheduleFields() {
+    const filteredSchedules = getManualOrderFilteredSchedules();
+    const groupedSchedules = new Map();
+
+    filteredSchedules.forEach(function groupSchedule(schedule) {
+      const dayLabel = DAY_NAMES[schedule.day_of_week];
+      const existing = groupedSchedules.get(dayLabel) || [];
+      existing.push(schedule);
+      groupedSchedules.set(dayLabel, existing);
+    });
+
+    if (filteredSchedules.length === 0) {
+      elements.manualOrderScheduleFields.classList.add('is-hidden');
+      elements.manualOrderFulfillmentDay.innerHTML = '';
+      elements.manualOrderFulfillmentTimeRange.innerHTML = '';
+      return;
+    }
+
+    elements.manualOrderScheduleFields.classList.remove('is-hidden');
+    elements.manualOrderFulfillmentDay.innerHTML = Array.from(groupedSchedules.keys()).map(function toOption(dayLabel) {
+      return '<option value="' + escapeHtml(dayLabel) + '">' + escapeHtml(dayLabel) + '</option>';
+    }).join('');
+
+    renderManualOrderTimeOptions();
+  }
+
+  function renderManualOrderTimeOptions() {
+    const selectedDay = elements.manualOrderFulfillmentDay.value;
+    const schedules = getManualOrderFilteredSchedules().filter(function filterByDay(schedule) {
+      return DAY_NAMES[schedule.day_of_week] === selectedDay;
+    });
+
+    elements.manualOrderFulfillmentTimeRange.innerHTML = schedules.map(function toOption(schedule) {
+      const range = String(schedule.start_time).slice(0, 5) + ' - ' + String(schedule.end_time).slice(0, 5);
+      return '<option value="' + escapeHtml(range) + '">' + escapeHtml(range) + '</option>';
+    }).join('');
+  }
+
+  function getProductById(productId) {
+    return state.products.find(function findProduct(product) {
+      return product.id === productId;
+    }) || null;
+  }
+
+  function createEmptyManualOrderItem() {
+    return {
+      lineId: 'line-' + Date.now() + '-' + Math.random().toString(16).slice(2, 8),
+      productId: '',
+      optionId: '',
+      quantity: 1
+    };
+  }
+
+  function getManualOrderItemOption(product, optionId) {
+    if (!product || !optionId) {
+      return null;
+    }
+
+    return (product.options || []).find(function findOption(option) {
+      return option.id === optionId;
+    }) || null;
+  }
+
+  function getManualOrderTotals() {
+    const deliveryType = elements.manualOrderDeliveryType.value;
+    const deliveryFee = deliveryType === 'delivery' ? Number(state.settings && state.settings.delivery_fee ? state.settings.delivery_fee : 0) : 0;
+    const subtotal = state.manualOrderItems.reduce(function sum(accumulator, item) {
+      const product = getProductById(Number.parseInt(item.productId, 10));
+
+      if (!product) {
+        return accumulator;
+      }
+
+      const option = getManualOrderItemOption(product, Number.parseInt(item.optionId, 10));
+      const unitPrice = Number(product.price || 0) + Number(option && option.price_modifier ? option.price_modifier : 0);
+      return accumulator + unitPrice * Number(item.quantity || 0);
+    }, 0);
+
+    return {
+      subtotal: subtotal,
+      deliveryFee: deliveryFee,
+      total: subtotal + deliveryFee
+    };
+  }
+
+  function renderManualOrderSummary() {
+    const totals = getManualOrderTotals();
+    elements.manualOrderSubtotal.textContent = formatMoney(totals.subtotal);
+    elements.manualOrderDeliveryFee.textContent = formatMoney(totals.deliveryFee);
+    elements.manualOrderTotal.textContent = formatMoney(totals.total);
+  }
+
+  function renderManualOrderItems() {
+    if (state.manualOrderItems.length === 0) {
+      renderEmpty(elements.manualOrderItemsList, 'Todavía no agregaste productos al pedido.');
+      renderManualOrderSummary();
+      return;
+    }
+
+    elements.manualOrderItemsList.innerHTML = state.manualOrderItems.map(function toLine(item, index) {
+      const productId = String(item.productId || '');
+      const product = getProductById(Number.parseInt(productId, 10));
+      const options = product ? (product.options || []).filter(function onlyActive(option) {
+        return option.is_active !== false;
+      }) : [];
+      const selectedOption = product ? getManualOrderItemOption(product, Number.parseInt(item.optionId, 10)) : null;
+      const unitPrice = product ? (Number(product.price || 0) + Number(selectedOption && selectedOption.price_modifier ? selectedOption.price_modifier : 0)) : 0;
+
+      const productOptions = ['<option value="">Seleccionar producto</option>'].concat(
+        state.products.filter(function onlyActive(productItem) {
+          return productItem.is_active !== false;
+        }).map(function toOption(productItem) {
+          const selected = String(productItem.id) === productId ? ' selected' : '';
+          return '<option value="' + productItem.id + '"' + selected + '>' + escapeHtml(productItem.name) + '</option>';
+        })
+      );
+
+      const optionOptions = ['<option value="">Sin opción</option>'].concat(
+        options.map(function toOption(option) {
+          const selected = String(option.id) === String(item.optionId || '') ? ' selected' : '';
+          const modifier = Number(option.price_modifier) || 0;
+          const modifierLabel = modifier === 0 ? '' : ' (' + (modifier > 0 ? '+' : '') + formatMoney(modifier) + ')';
+          return '<option value="' + option.id + '"' + selected + '>' + escapeHtml(option.name + modifierLabel) + '</option>';
+        })
+      );
+
+      return [
+        '<article class="list-card manual-order-line">',
+        '  <div class="section-header section-header--compact">',
+        '    <div>',
+        '      <p class="eyebrow">Item ' + escapeHtml(String(index + 1)) + '</p>',
+        '      <h3>' + escapeHtml(product ? product.name : 'Producto pendiente') + '</h3>',
+        '    </div>',
+        '    <button class="ghost-button" type="button" data-remove-manual-item="' + escapeHtml(item.lineId) + '">Quitar</button>',
+        '  </div>',
+        '  <div class="two-columns">',
+        '    <label class="field">',
+        '      <span>Producto</span>',
+        '      <select data-manual-item-product="' + escapeHtml(item.lineId) + '">' + productOptions.join('') + '</select>',
+        '    </label>',
+        '    <label class="field">',
+        '      <span>Opción</span>',
+        '      <select data-manual-item-option="' + escapeHtml(item.lineId) + '">' + optionOptions.join('') + '</select>',
+        '    </label>',
+        '  </div>',
+        '  <div class="two-columns">',
+        '    <label class="field">',
+        '      <span>Cantidad</span>',
+        '      <input type="number" min="1" step="1" value="' + escapeHtml(String(item.quantity || 1)) + '" data-manual-item-quantity="' + escapeHtml(item.lineId) + '" />',
+        '    </label>',
+        '    <div class="manual-order-line__meta">',
+        '      <span>Unitario estimado</span>',
+        '      <strong>' + escapeHtml(formatMoney(unitPrice)) + '</strong>',
+        '    </div>',
+        '  </div>',
+        ' </article>'
+      ].join('');
+    }).join('');
+
+    renderManualOrderSummary();
+  }
+
+  function syncManualOrderUi() {
+    elements.manualOrderCard.classList.toggle('is-hidden', !state.isManualOrderOpen);
+  }
+
+  function openManualOrderForm() {
+    state.isManualOrderOpen = true;
+    syncManualOrderUi();
+    scrollToElement(elements.manualOrderCard);
+  }
+
+  function closeManualOrderForm() {
+    state.isManualOrderOpen = false;
+    syncManualOrderUi();
   }
 
   function updateProductImagePreview() {
@@ -317,6 +615,15 @@
     elements.scheduleIsActive.checked = true;
     elements.scheduleDayOfWeek.value = '0';
     elements.scheduleFulfillmentType.value = 'delivery';
+  }
+
+  function resetManualOrderForm() {
+    elements.manualOrderForm.reset();
+    elements.manualOrderDeliveryType.value = 'delivery';
+    state.manualOrderItems = [createEmptyManualOrderItem()];
+    updateManualOrderAddressVisibility();
+    renderManualOrderScheduleFields();
+    renderManualOrderItems();
   }
 
   function populateCategorySelect() {
@@ -646,6 +953,8 @@
       renderExpenses();
       renderCategories();
       renderSchedules();
+      renderManualOrderScheduleFields();
+      renderManualOrderItems();
       renderOrderDetailPlaceholder();
       updateProductImagePreview();
       setMessage('Panel actualizado.');
@@ -954,6 +1263,7 @@
       }
 
       resetExpenseForm();
+      closeExpenseEditor();
       await loadData();
     } catch (error) {
       handleApiError(error);
@@ -973,8 +1283,10 @@
         elements.expenseAmount.value = expense.amount || 0;
         elements.expenseDate.value = String(expense.expense_date).slice(0, 10);
         elements.expenseDescription.value = expense.description || '';
+        openExpenseEditor('edit');
         setActiveTab('expenses');
         setMessage('Editando gasto #' + expense.id + '.');
+        showToast('info', 'Editando gasto.');
       } catch (error) {
         handleApiError(error);
       }
@@ -1010,6 +1322,7 @@
       }
 
       resetCategoryForm();
+      closeCategoryEditor();
       await loadData();
     } catch (error) {
       handleApiError(error);
@@ -1027,8 +1340,10 @@
         elements.categoryName.value = category.name || '';
         elements.categoryDescription.value = category.description || '';
         elements.categoryIsActive.checked = Boolean(category.is_active);
+        openCategoryEditor('edit');
         setActiveTab('categories');
         setMessage('Editando categoria #' + category.id + '.');
+        showToast('info', 'Editando categoría.');
       } catch (error) {
         handleApiError(error);
       }
@@ -1066,9 +1381,169 @@
       }
 
       resetScheduleForm();
+      closeScheduleEditor();
       await loadData();
     } catch (error) {
       handleApiError(error);
+    }
+  }
+
+  function handleManualOrderDeliveryTypeChange() {
+    updateManualOrderAddressVisibility();
+    renderManualOrderScheduleFields();
+    renderManualOrderSummary();
+  }
+
+  function handleManualOrderItemsClick(event) {
+    const removeButton = event.target.closest('[data-remove-manual-item]');
+
+    if (!removeButton) {
+      return;
+    }
+
+    state.manualOrderItems = state.manualOrderItems.filter(function filterItem(item) {
+      return item.lineId !== removeButton.getAttribute('data-remove-manual-item');
+    });
+
+    renderManualOrderItems();
+  }
+
+  function handleManualOrderItemsChange(event) {
+    const productSelect = event.target.closest('[data-manual-item-product]');
+    const optionSelect = event.target.closest('[data-manual-item-option]');
+    const quantityInput = event.target.closest('[data-manual-item-quantity]');
+
+    if (productSelect) {
+      const lineId = productSelect.getAttribute('data-manual-item-product');
+      state.manualOrderItems = state.manualOrderItems.map(function mapItem(item) {
+        if (item.lineId !== lineId) {
+          return item;
+        }
+
+        return {
+          lineId: item.lineId,
+          productId: productSelect.value,
+          optionId: '',
+          quantity: item.quantity
+        };
+      });
+      renderManualOrderItems();
+      return;
+    }
+
+    if (optionSelect) {
+      const lineId = optionSelect.getAttribute('data-manual-item-option');
+      state.manualOrderItems = state.manualOrderItems.map(function mapItem(item) {
+        return item.lineId === lineId ? { ...item, optionId: optionSelect.value } : item;
+      });
+      renderManualOrderItems();
+      return;
+    }
+
+    if (quantityInput) {
+      const lineId = quantityInput.getAttribute('data-manual-item-quantity');
+      const quantity = Math.max(1, Number.parseInt(quantityInput.value, 10) || 1);
+      state.manualOrderItems = state.manualOrderItems.map(function mapItem(item) {
+        return item.lineId === lineId ? { ...item, quantity: quantity } : item;
+      });
+      renderManualOrderItems();
+    }
+  }
+
+  async function handleManualOrderSubmit(event) {
+    event.preventDefault();
+
+    if (state.manualOrderItems.length === 0) {
+      showToast('warning', 'Agrega al menos un producto al pedido.');
+      return;
+    }
+
+    const customerName = elements.manualOrderCustomerName.value.trim();
+    const customerPhone = elements.manualOrderCustomerPhone.value.trim();
+    const deliveryType = elements.manualOrderDeliveryType.value;
+    const address = elements.manualOrderAddress.value.trim();
+    const notes = elements.manualOrderNotes.value.trim();
+    const fulfillmentDay = elements.manualOrderFulfillmentDay.value;
+    const fulfillmentTimeRange = elements.manualOrderFulfillmentTimeRange.value;
+
+    if (!customerName) {
+      showToast('warning', 'Completa el nombre del cliente.');
+      return;
+    }
+
+    if (!customerPhone) {
+      showToast('warning', 'Completa el teléfono del cliente.');
+      return;
+    }
+
+    if (deliveryType === 'delivery' && !address) {
+      showToast('warning', 'Ingresá la dirección para delivery.');
+      return;
+    }
+
+    if (hasManualOrderSchedules() && (!fulfillmentDay || !fulfillmentTimeRange)) {
+      showToast('warning', 'Seleccioná día y horario de entrega.');
+      return;
+    }
+
+    const payloadItems = [];
+
+    for (let index = 0; index < state.manualOrderItems.length; index += 1) {
+      const item = state.manualOrderItems[index];
+      const product = getProductById(Number.parseInt(item.productId, 10));
+
+      if (!product) {
+        showToast('warning', 'Selecciona un producto en cada item.');
+        return;
+      }
+
+      const quantity = Number.parseInt(item.quantity, 10);
+      if (!quantity || quantity < 1) {
+        showToast('warning', 'La cantidad debe ser mayor a cero.');
+        return;
+      }
+
+      const activeOptions = (product.options || []).filter(function onlyActive(option) {
+        return option.is_active !== false;
+      });
+      const hasRequiredOption = activeOptions.some(function hasRequired(option) {
+        return Boolean(option.is_required);
+      });
+
+      if (hasRequiredOption && !item.optionId) {
+        showToast('warning', 'Elegí una opción para el producto.');
+        return;
+      }
+
+      payloadItems.push({
+        product_id: product.id,
+        product_option_id: item.optionId ? Number.parseInt(item.optionId, 10) : null,
+        quantity: quantity
+      });
+    }
+
+    try {
+      setButtonLoading(elements.manualOrderSubmitButton, true, 'Creando pedido...', 'Crear pedido');
+
+      await global.AdminApi.createOrder({
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        delivery_type: deliveryType,
+        address: deliveryType === 'delivery' ? address : null,
+        notes: notes || null,
+        fulfillment_day: hasManualOrderSchedules() ? fulfillmentDay : null,
+        fulfillment_time_range: hasManualOrderSchedules() ? fulfillmentTimeRange : null,
+        items: payloadItems
+      });
+
+      resetManualOrderForm();
+      closeManualOrderForm();
+      await loadData();
+      showToast('success', 'Pedido manual creado.');
+    } catch (error) {
+      handleApiError(error);
+    } finally {
+      setButtonLoading(elements.manualOrderSubmitButton, false, 'Creando pedido...', 'Crear pedido');
     }
   }
 
@@ -1092,8 +1567,10 @@
       elements.scheduleEndTime.value = String(schedule.end_time).slice(0, 5);
       elements.scheduleFulfillmentType.value = schedule.fulfillment_type;
       elements.scheduleIsActive.checked = Boolean(schedule.is_active);
+      openScheduleEditor('edit');
       setActiveTab('schedules');
       setMessage('Editando horario #' + schedule.id + '.');
+      showToast('info', 'Editando horario.');
     }
 
     if (deleteButton) {
@@ -1142,6 +1619,11 @@
     elements.adminTabs.addEventListener('click', handleTabAction);
     elements.refreshDashboardButton.addEventListener('click', loadData);
     elements.refreshOrdersButton.addEventListener('click', loadData);
+    elements.openManualOrderButton.addEventListener('click', function openManualOrder() {
+      resetManualOrderForm();
+      openManualOrderForm();
+      showToast('info', 'Carga un pedido manual.');
+    });
     elements.openNewProductButton.addEventListener('click', function openNewProductForm() {
       resetProductForm();
       openProductEditor('create');
@@ -1149,6 +1631,21 @@
     });
     elements.ordersList.addEventListener('click', handleOrdersListClick);
     elements.ordersList.addEventListener('change', handleOrdersListChange);
+    elements.manualOrderForm.addEventListener('submit', handleManualOrderSubmit);
+    elements.cancelManualOrderButton.addEventListener('click', function cancelManualOrder() {
+      resetManualOrderForm();
+      closeManualOrderForm();
+      showToast('info', 'Carga manual cancelada.');
+    });
+    elements.manualOrderDeliveryType.addEventListener('change', handleManualOrderDeliveryTypeChange);
+    elements.manualOrderFulfillmentDay.addEventListener('change', renderManualOrderTimeOptions);
+    elements.addManualOrderItemButton.addEventListener('click', function addManualItem() {
+      state.manualOrderItems.push(createEmptyManualOrderItem());
+      renderManualOrderItems();
+    });
+    elements.manualOrderItemsList.addEventListener('click', handleManualOrderItemsClick);
+    elements.manualOrderItemsList.addEventListener('change', handleManualOrderItemsChange);
+    elements.manualOrderItemsList.addEventListener('input', handleManualOrderItemsChange);
     elements.productForm.addEventListener('submit', handleProductSubmit);
     elements.productImageUrl.addEventListener('input', updateProductImagePreview);
     elements.uploadProductImageButton.addEventListener('click', handleProductImageUpload);
@@ -1165,15 +1662,42 @@
       closeProductOptionsManager();
       showToast('info', 'Cerraste la gestion de opciones.');
     });
+    elements.openExpenseEditorButton.addEventListener('click', function openExpenseForm() {
+      resetExpenseForm();
+      openExpenseEditor('create');
+      showToast('info', 'Registra un nuevo gasto.');
+    });
     elements.expenseForm.addEventListener('submit', handleExpenseSubmit);
     elements.expensesList.addEventListener('click', handleExpensesListClick);
-    elements.resetExpenseFormButton.addEventListener('click', resetExpenseForm);
+    elements.cancelExpenseEditButton.addEventListener('click', function cancelExpenseEdit() {
+      resetExpenseForm();
+      closeExpenseEditor();
+      showToast('info', 'Edición de gasto cancelada.');
+    });
+    elements.openCategoryEditorButton.addEventListener('click', function openCategoryForm() {
+      resetCategoryForm();
+      openCategoryEditor('create');
+      showToast('info', 'Crea una nueva categoría.');
+    });
     elements.categoryForm.addEventListener('submit', handleCategorySubmit);
     elements.categoriesList.addEventListener('click', handleCategoriesListClick);
-    elements.resetCategoryFormButton.addEventListener('click', resetCategoryForm);
+    elements.cancelCategoryEditButton.addEventListener('click', function cancelCategoryEdit() {
+      resetCategoryForm();
+      closeCategoryEditor();
+      showToast('info', 'Edición de categoría cancelada.');
+    });
+    elements.openScheduleEditorButton.addEventListener('click', function openScheduleForm() {
+      resetScheduleForm();
+      openScheduleEditor('create');
+      showToast('info', 'Crea un nuevo horario.');
+    });
     elements.scheduleForm.addEventListener('submit', handleScheduleSubmit);
     elements.schedulesList.addEventListener('click', handleSchedulesListClick);
-    elements.resetScheduleFormButton.addEventListener('click', resetScheduleForm);
+    elements.cancelScheduleEditButton.addEventListener('click', function cancelScheduleEdit() {
+      resetScheduleForm();
+      closeScheduleEditor();
+      showToast('info', 'Edición de horario cancelada.');
+    });
     elements.settingsForm.addEventListener('submit', handleSettingsSubmit);
   }
 
@@ -1185,7 +1709,12 @@
     closeProductEditor();
     closeProductOptionsManager();
     resetExpenseForm();
+    closeExpenseEditor();
     resetScheduleForm();
+    closeScheduleEditor();
+    closeCategoryEditor();
+    resetManualOrderForm();
+    closeManualOrderForm();
 
     if (global.AdminAuth.getToken()) {
       setAuthState(true);
