@@ -11,7 +11,7 @@
     if (!response.ok) {
       const errorBody = await readErrorBody(response);
 
-      throw new Error(errorBody || ('API request failed: ' + path));
+      throw new Error(errorBody.message || errorBody.error || ('API request failed: ' + path));
     }
 
     return response.json();
@@ -32,7 +32,11 @@
     });
 
     if (!response.ok) {
-      throw new Error(responseBody && responseBody.error ? responseBody.error : 'API request failed: ' + path);
+      throw new Error(
+        responseBody && (responseBody.message || responseBody.error)
+          ? (responseBody.message || responseBody.error)
+          : ('API request failed: ' + path)
+      );
     }
 
     return responseBody;
@@ -43,7 +47,7 @@
       return null;
     });
 
-    return responseBody && responseBody.error ? responseBody.error : null;
+    return responseBody || null;
   }
 
   global.ClientApi = {

@@ -1,6 +1,24 @@
 const pool = require('../../config/db');
+const { getSchemaCapabilities } = require('../schema-capabilities.service');
+
+async function hasProductOptionsTable() {
+  const capabilities = await getSchemaCapabilities();
+  return capabilities.hasProductOptionsTable;
+}
+
+async function ensureProductOptionsTable() {
+  const available = await hasProductOptionsTable();
+
+  if (!available) {
+    throw new Error('La tabla product_options no existe en la base actual. Ejecutá la migración 001_add_product_options_and_order_item_option.sql.');
+  }
+}
 
 async function getOptionsByProductId(productId) {
+  if (!(await hasProductOptionsTable())) {
+    return [];
+  }
+
   const result = await pool.query(`
     SELECT
       id,
@@ -21,6 +39,8 @@ async function getOptionsByProductId(productId) {
 }
 
 async function createProductOption(productId, payload) {
+  await ensureProductOptionsTable();
+
   const result = await pool.query(`
     INSERT INTO product_options (
       product_id,
@@ -56,6 +76,10 @@ async function createProductOption(productId, payload) {
 }
 
 async function getProductOptionById(optionId) {
+  if (!(await hasProductOptionsTable())) {
+    return null;
+  }
+
   const result = await pool.query(`
     SELECT
       id,
@@ -76,6 +100,8 @@ async function getProductOptionById(optionId) {
 }
 
 async function updateProductOption(optionId, payload) {
+  await ensureProductOptionsTable();
+
   const result = await pool.query(`
     UPDATE product_options
     SET
@@ -109,6 +135,8 @@ async function updateProductOption(optionId, payload) {
 }
 
 async function softDeleteProductOption(optionId) {
+  await ensureProductOptionsTable();
+
   const result = await pool.query(`
     UPDATE product_options
     SET

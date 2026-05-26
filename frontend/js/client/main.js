@@ -822,9 +822,11 @@
       elements.catalogStatus.classList.add('is-hidden');
     } catch (error) {
       console.error('Error loading storefront:', error);
+      const message = error && error.message ? error.message : 'No se pudo cargar el catalogo.';
+
       elements.catalogStatus.classList.remove('is-hidden');
-      elements.catalogStatus.textContent = 'No se pudo cargar el catalogo. Revisa que el backend este corriendo y que API_BASE_URL apunte al host correcto.';
-      showToast('error', 'No se pudo cargar el catalogo.');
+      elements.catalogStatus.textContent = message;
+      showToast('error', message);
     }
   }
 

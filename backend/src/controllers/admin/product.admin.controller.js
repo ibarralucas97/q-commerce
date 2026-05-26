@@ -1,6 +1,14 @@
 const productAdminService = require('../../services/admin/product.admin.service');
 const productOptionAdminService = require('../../services/admin/product-option.admin.service');
 
+function buildProductsErrorResponse(code, message, error) {
+  return {
+    error: code,
+    message: message,
+    details: error && error.message ? error.message : null
+  };
+}
+
 function normalizeCategoryId(categoryId) {
   if (categoryId === null || categoryId === undefined || categoryId === '') {
     return null;
@@ -65,10 +73,15 @@ async function getProducts(req, res) {
 
     return res.json(products);
   } catch (error) {
-    console.error('Error fetching admin products:', error);
+    console.error('[GET /api/admin/products] Error fetching admin products:', error.message);
+    console.error(error.stack);
 
     return res.status(500).json({
-      error: 'internal server error'
+      ...buildProductsErrorResponse(
+        'ADMIN_PRODUCTS_FETCH_FAILED',
+        'No se pudieron cargar los productos del panel.',
+        error
+      )
     });
   }
 }
@@ -93,10 +106,13 @@ async function getProductById(req, res) {
 
     return res.json(product);
   } catch (error) {
-    console.error('Error fetching admin product:', error);
+    console.error('[GET /api/admin/products/:id] Error fetching admin product:', error.message);
+    console.error(error.stack);
 
     return res.status(500).json({
-      error: 'internal server error'
+      error: 'ADMIN_PRODUCT_FETCH_FAILED',
+      message: 'No se pudo cargar el producto del panel.',
+      details: error && error.message ? error.message : null
     });
   }
 }

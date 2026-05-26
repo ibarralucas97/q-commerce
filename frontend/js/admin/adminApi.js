@@ -26,14 +26,22 @@
 
     if (response.status === 401) {
       global.AdminAuth.clearSession();
-      const unauthorizedError = new Error(responseBody && responseBody.error ? responseBody.error : 'authentication required');
+      const unauthorizedError = new Error(
+        responseBody && (responseBody.message || responseBody.error)
+          ? (responseBody.message || responseBody.error)
+          : 'authentication required'
+      );
 
       unauthorizedError.status = 401;
       throw unauthorizedError;
     }
 
     if (!response.ok) {
-      throw new Error(responseBody && responseBody.error ? responseBody.error : 'API request failed');
+      throw new Error(
+        responseBody && (responseBody.message || responseBody.error)
+          ? (responseBody.message || responseBody.error)
+          : 'API request failed'
+      );
     }
 
     return responseBody;
@@ -61,14 +69,22 @@
 
     if (response.status === 401) {
       global.AdminAuth.clearSession();
-      const unauthorizedError = new Error(responseBody && responseBody.error ? responseBody.error : 'authentication required');
+      const unauthorizedError = new Error(
+        responseBody && (responseBody.message || responseBody.error)
+          ? (responseBody.message || responseBody.error)
+          : 'authentication required'
+      );
 
       unauthorizedError.status = 401;
       throw unauthorizedError;
     }
 
     if (!response.ok) {
-      throw new Error(responseBody && responseBody.error ? responseBody.error : 'API request failed');
+      throw new Error(
+        responseBody && (responseBody.message || responseBody.error)
+          ? (responseBody.message || responseBody.error)
+          : 'API request failed'
+      );
     }
 
     return responseBody;

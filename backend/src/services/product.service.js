@@ -1,26 +1,29 @@
 const pool = require('../config/db');
+const { getSchemaCapabilities } = require('./schema-capabilities.service');
 
-const baseSelect = `
-  SELECT
-    p.id,
-    p.category_id,
-    c.name AS category_name,
-    p.name,
-    p.description,
-    p.price,
-    p.image_url,
-    p.stock,
-    p.option_group_count,
-    p.option_group_label,
-    p.is_active,
-    p.created_at,
-    p.updated_at
-  FROM products p
-  LEFT JOIN categories c ON c.id = p.category_id
-`;
+function buildBaseSelect(capabilities) {
+  return `
+    SELECT
+      p.id,
+      p.category_id,
+      c.name AS category_name,
+      p.name,
+      p.description,
+      p.price,
+      p.image_url,
+      p.stock,
+      ${capabilities.hasProductOptionGroupCount ? 'p.option_group_count' : '1::integer AS option_group_count'},
+      ${capabilities.hasProductOptionGroupLabel ? 'p.option_group_label' : 'NULL::varchar AS option_group_label'},
+      p.is_active,
+      p.created_at,
+      p.updated_at
+    FROM products p
+    LEFT JOIN categories c ON c.id = p.category_id
+  `;
+}
 
-async function getActiveOptionsByProductIds(productIds) {
-  if (productIds.length === 0) {
+async function getActiveOptionsByProductIds(productIds, capabilities) {
+  if (productIds.length === 0 || !capabilities.hasProductOptionsTable) {
     return new Map();
   }
 
@@ -63,21 +66,23 @@ function attachOptions(products, optionsByProductId) {
 }
 
 async function getProducts() {
+  const capabilities = await getSchemaCapabilities();
   const result = await pool.query(`
-    ${baseSelect}
+    ${buildBaseSelect(capabilities)}
     ORDER BY p.id ASC
   `);
 
   const optionsByProductId = await getActiveOptionsByProductIds(result.rows.map(function mapProduct(product) {
     return product.id;
-  }));
+  }), capabilities);
 
   return attachOptions(result.rows, optionsByProductId);
 }
 
 async function getProductById(productId) {
+  const capabilities = await getSchemaCapabilities();
   const result = await pool.query(`
-    ${baseSelect}
+    ${buildBaseSelect(capabilities)}
     WHERE p.id = $1
     LIMIT 1
   `, [productId]);
@@ -86,7 +91,7 @@ async function getProductById(productId) {
     return null;
   }
 
-  const optionsByProductId = await getActiveOptionsByProductIds([productId]);
+  const optionsByProductId = await getActiveOptionsByProductIds([productId], capabilities);
 
   return attachOptions(result.rows, optionsByProductId)[0] || null;
 }

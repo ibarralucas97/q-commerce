@@ -1,15 +1,28 @@
 const productService = require('../services/product.service');
 
+function buildProductsErrorResponse(code, message, error) {
+  return {
+    error: code,
+    message: message,
+    details: error && error.message ? error.message : null
+  };
+}
+
 async function getProducts(req, res) {
   try {
     const products = await productService.getProducts();
 
     return res.json(products);
   } catch (error) {
-    console.error('Error fetching products:', error);
+    console.error('[GET /api/products] Error fetching products:', error.message);
+    console.error(error.stack);
 
     return res.status(500).json({
-      error: 'internal server error'
+      ...buildProductsErrorResponse(
+        'PRODUCTS_FETCH_FAILED',
+        'No se pudieron cargar los productos.',
+        error
+      )
     });
   }
 }
@@ -34,10 +47,13 @@ async function getProductById(req, res) {
 
     return res.json(product);
   } catch (error) {
-    console.error('Error fetching product:', error);
+    console.error('[GET /api/products/:id] Error fetching product:', error.message);
+    console.error(error.stack);
 
     return res.status(500).json({
-      error: 'internal server error'
+      error: 'PRODUCT_FETCH_FAILED',
+      message: 'No se pudo cargar el producto.',
+      details: error && error.message ? error.message : null
     });
   }
 }

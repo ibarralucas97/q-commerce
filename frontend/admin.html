@@ -49,6 +49,7 @@
 
         <nav class="tabs" id="adminTabs">
           <button class="tab-button is-active" type="button" data-tab="dashboard">Dashboard</button>
+          <button class="tab-button" type="button" data-tab="cashbox">CAJA</button>
           <button class="tab-button" type="button" data-tab="orders">Pedidos</button>
           <button class="tab-button" type="button" data-tab="products">Productos</button>
           <button class="tab-button" type="button" data-tab="expenses">Gastos</button>
@@ -69,7 +70,16 @@
               <button class="secondary-button" id="refreshDashboardButton" type="button">Actualizar</button>
             </div>
             <div class="kpi-grid" id="dashboardSummary"></div>
+          </section>
 
+          <section class="panel-section is-hidden" data-section="cashbox">
+            <div class="section-header">
+              <div>
+                <p class="eyebrow">Caja</p>
+                <h2>Caja</h2>
+                <p class="muted">Revisá el lote activo, el historial y cerrá la ronda cuando corresponda.</p>
+              </div>
+            </div>
             <div class="workspace-grid">
               <div class="workspace-main">
                 <article class="editor-card">

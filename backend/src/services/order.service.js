@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { getSchemaCapabilities } = require('./schema-capabilities.service');
 
 const DELIVERY_TYPES = ['delivery', 'pickup'];
 const DAY_LABELS = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
@@ -167,15 +168,15 @@ async function getStoreSettings(client) {
   return result.rows[0] || null;
 }
 
-async function getProductsForOrder(client, productIds) {
+async function getProductsForOrder(client, productIds, capabilities) {
   const result = await client.query(`
     SELECT
       id,
       name,
       price,
       is_active,
-      option_group_count,
-      option_group_label
+      ${capabilities.hasProductOptionGroupCount ? 'option_group_count' : '1::integer AS option_group_count'},
+      ${capabilities.hasProductOptionGroupLabel ? 'option_group_label' : 'NULL::varchar AS option_group_label'}
     FROM products
     WHERE id = ANY($1::int[])
   `, [productIds]);
@@ -183,8 +184,8 @@ async function getProductsForOrder(client, productIds) {
   return result.rows;
 }
 
-async function getProductOptionsForOrder(client, productOptionIds) {
-  if (productOptionIds.length === 0) {
+async function getProductOptionsForOrder(client, productOptionIds, capabilities) {
+  if (productOptionIds.length === 0 || !capabilities.hasProductOptionsTable) {
     return [];
   }
 
@@ -203,8 +204,8 @@ async function getProductOptionsForOrder(client, productOptionIds) {
   return result.rows;
 }
 
-async function getActiveProductOptionsByProductIds(client, productIds) {
-  if (productIds.length === 0) {
+async function getActiveProductOptionsByProductIds(client, productIds, capabilities) {
+  if (productIds.length === 0 || !capabilities.hasProductOptionsTable) {
     return [];
   }
 
@@ -257,6 +258,7 @@ async function createOrder(payload) {
 
   try {
     await client.query('BEGIN');
+    const capabilities = await getSchemaCapabilities();
 
     const settings = await getStoreSettings(client);
 
@@ -293,7 +295,7 @@ async function createOrder(payload) {
     const productOptionIds = Array.from(new Set(normalizedItems.flatMap(function mapOptionIds(item) {
       return item.selected_option_ids || [];
     })));
-    const products = await getProductsForOrder(client, productIds);
+    const products = await getProductsForOrder(client, productIds, capabilities);
 
     if (products.length !== productIds.length) {
       await client.query('ROLLBACK');
@@ -307,11 +309,11 @@ async function createOrder(payload) {
     const productMap = new Map(products.map(function toEntry(product) {
       return [product.id, product];
     }));
-    const selectedOptions = await getProductOptionsForOrder(client, productOptionIds);
+    const selectedOptions = await getProductOptionsForOrder(client, productOptionIds, capabilities);
     const optionMap = new Map(selectedOptions.map(function toEntry(option) {
       return [option.id, option];
     }));
-    const activeProductOptions = await getActiveProductOptionsByProductIds(client, productIds);
+    const activeProductOptions = await getActiveProductOptionsByProductIds(client, productIds, capabilities);
     const schedules = await getFulfillmentSchedules(client);
 
     for (const item of normalizedItems) {
