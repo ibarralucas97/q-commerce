@@ -12,7 +12,8 @@
     customerLocation: {
       latitude: null,
       longitude: null
-    }
+    },
+    pendingLocationResult: null
   };
 
   const elements = {
@@ -39,8 +40,15 @@
     customerAddress: document.getElementById('customerAddress'),
     customerMapsUrl: document.getElementById('customerMapsUrl'),
     customerNotes: document.getElementById('customerNotes'),
+    searchLocationButton: document.getElementById('searchLocationButton'),
     detectLocationButton: document.getElementById('detectLocationButton'),
     locationStatus: document.getElementById('locationStatus'),
+    locationPreview: document.getElementById('locationPreview'),
+    locationPreviewTitle: document.getElementById('locationPreviewTitle'),
+    locationPreviewAddress: document.getElementById('locationPreviewAddress'),
+    locationPreviewFrame: document.getElementById('locationPreviewFrame'),
+    confirmLocationButton: document.getElementById('confirmLocationButton'),
+    clearLocationButton: document.getElementById('clearLocationButton'),
     fulfillmentDay: document.getElementById('fulfillmentDay'),
     fulfillmentTimeRange: document.getElementById('fulfillmentTimeRange'),
     scheduleFields: document.getElementById('scheduleFields'),
@@ -107,6 +115,14 @@
     return currency + ' ' + new Intl.NumberFormat('es-AR').format(amount);
   }
 
+  function getDeliveryFeeAmount() {
+    if (!state.settings) {
+      return 500;
+    }
+
+    return state.settings.delivery_fee == null ? 500 : Number(state.settings.delivery_fee || 0);
+  }
+
   function getSelectedDeliveryType() {
     const selectedOption = document.querySelector('input[name="deliveryType"]:checked');
     return selectedOption ? selectedOption.value : 'pickup';
@@ -151,6 +167,47 @@
 
   function setLocationStatus(message) {
     elements.locationStatus.textContent = message;
+  }
+
+  function clearPendingLocation() {
+    state.pendingLocationResult = null;
+    elements.locationPreview.classList.add('is-hidden');
+    elements.locationPreviewAddress.textContent = '';
+    elements.locationPreviewFrame.removeAttribute('src');
+  }
+
+  function clearConfirmedLocation(options) {
+    state.customerLocation.latitude = null;
+    state.customerLocation.longitude = null;
+    elements.customerMapsUrl.value = '';
+
+    if (!options || options.keepPreview !== true) {
+      clearPendingLocation();
+    }
+  }
+
+  function buildMapPreviewUrl(latitude, longitude) {
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+    const delta = 0.008;
+
+    return 'https://www.openstreetmap.org/export/embed.html?bbox='
+      + encodeURIComponent((lng - delta) + ',' + (lat - delta) + ',' + (lng + delta) + ',' + (lat + delta))
+      + '&layer=mapnik&marker='
+      + encodeURIComponent(lat + ',' + lng);
+  }
+
+  function renderLocationPreview(locationResult) {
+    if (!locationResult) {
+      clearPendingLocation();
+      return;
+    }
+
+    state.pendingLocationResult = locationResult;
+    elements.locationPreview.classList.remove('is-hidden');
+    elements.locationPreviewTitle.textContent = 'Ubicación encontrada';
+    elements.locationPreviewAddress.textContent = locationResult.displayName || locationResult.address || '';
+    elements.locationPreviewFrame.src = buildMapPreviewUrl(locationResult.latitude, locationResult.longitude);
   }
 
   function updateAddressVisibility() {
@@ -222,12 +279,34 @@
 
   function setOptionModalOpen(isOpen) {
     elements.optionModal.classList.toggle('is-hidden', !isOpen);
-    elements.floatingCartButton.classList.toggle('is-hidden', isOpen || global.CartStore.getSummary(state.settings ? state.settings.delivery_fee : 0, isDeliverySelected()).itemCount === 0);
+    elements.floatingCartButton.classList.toggle('is-hidden', isOpen || global.CartStore.getSummary(getDeliveryFeeAmount(), isDeliverySelected()).itemCount === 0);
     document.body.classList.toggle('modal-open', isOpen);
+  }
+
+  function inferDocenaCountFromName(name) {
+    const match = String(name || '').match(/(\d+)\s*docenas?/i);
+
+    if (!match) {
+      return 1;
+    }
+
+    const parsedCount = Number.parseInt(match[1], 10);
+    return Number.isInteger(parsedCount) && parsedCount > 1 ? parsedCount : 1;
   }
 
   function getProductOptionGroupCount(product) {
     const parsedCount = Number.parseInt(product.option_group_count, 10);
+
+    if (Number.isInteger(parsedCount) && parsedCount > 1) {
+      return parsedCount;
+    }
+
+    const inferredCount = inferDocenaCountFromName(product && product.name);
+
+    if (inferredCount > 1) {
+      return inferredCount;
+    }
+
     return Number.isInteger(parsedCount) && parsedCount > 0 ? parsedCount : 1;
   }
 
@@ -246,7 +325,7 @@
     const selectionDetail = selectedOptions.map(function toDetail(option, index) {
       return {
         slot: index + 1,
-        label: getProductOptionGroupLabel(product) + ' ' + (index + 1),
+        label: (inferDocenaCountFromName(product && product.name) > 1 ? 'Docena' : getProductOptionGroupLabel(product)) + ' ' + (index + 1),
         option_id: option.id,
         option_name: option.name
       };
@@ -281,7 +360,7 @@
     elements.optionModalDescription.textContent = product.description || 'Elegi la opcion que corresponde para este producto.';
     elements.optionModalHint.textContent = 'Selecciona cada opción antes de agregar el producto.';
     const optionGroupCount = getProductOptionGroupCount(product);
-    const groupLabel = getProductOptionGroupLabel(product);
+    const groupLabel = inferDocenaCountFromName(product && product.name) > 1 ? 'Docena' : getProductOptionGroupLabel(product);
 
     elements.optionList.innerHTML = Array.from({ length: optionGroupCount }).map(function renderGroup(_, index) {
       const optionChoices = (product.options || []).map(function toOption(option) {
@@ -354,7 +433,7 @@
     const pieces = [];
 
     if (settings.delivery_enabled) {
-      pieces.push('Delivery ' + formatMoney(settings.delivery_fee));
+      pieces.push('Delivery ' + formatMoney(settings.delivery_fee == null ? 500 : settings.delivery_fee));
     }
 
     if (settings.pickup_enabled) {
@@ -427,7 +506,7 @@
   }
 
   function renderCart() {
-    const summary = global.CartStore.getSummary(state.settings ? state.settings.delivery_fee : 0, isDeliverySelected());
+    const summary = global.CartStore.getSummary(getDeliveryFeeAmount(), isDeliverySelected());
 
     elements.floatingCartCount.textContent = String(summary.itemCount);
     elements.floatingCartButton.classList.toggle('is-hidden', state.cartOpen || summary.itemCount === 0 || !elements.optionModal.classList.contains('is-hidden'));
@@ -496,7 +575,7 @@
   }
 
   function buildWhatsappMessage(formData) {
-    const summary = global.CartStore.getSummary(state.settings.delivery_fee, formData.deliveryType === 'delivery');
+    const summary = global.CartStore.getSummary(getDeliveryFeeAmount(), formData.deliveryType === 'delivery');
     const lines = [
       'Hola ' + (state.settings.store_name || 'tienda') + ', quiero hacer un pedido:',
       '',
@@ -549,7 +628,7 @@
   async function handleCheckout(event) {
     event.preventDefault();
 
-    const summary = global.CartStore.getSummary(state.settings.delivery_fee, isDeliverySelected());
+    const summary = global.CartStore.getSummary(getDeliveryFeeAmount(), isDeliverySelected());
 
     if (summary.itemCount === 0) {
       elements.checkoutHint.textContent = 'Tu carrito esta vacio.';
@@ -676,6 +755,69 @@
     });
   }
 
+  async function searchAddressLocation() {
+    const address = elements.customerAddress.value.trim();
+
+    if (!address) {
+      showToast('warning', 'Ingresá una dirección antes de buscar la ubicación.');
+      setLocationStatus('Escribí la dirección y luego buscala en el mapa.');
+      return;
+    }
+
+    clearConfirmedLocation({ keepPreview: true });
+    setButtonLoading(elements.searchLocationButton, true, 'Buscando...', 'Buscar ubicación');
+    setLocationStatus('Buscando la dirección en el mapa...');
+
+    try {
+      const response = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&q=' + encodeURIComponent(address), {
+        headers: {
+          Accept: 'application/json'
+        }
+      });
+      const results = await response.json().catch(function ignoreInvalidJson() {
+        return [];
+      });
+
+      if (!response.ok || !Array.isArray(results) || results.length === 0) {
+        clearPendingLocation();
+        setLocationStatus('No encontramos esa dirección. Podés seguir con la dirección escrita.');
+        showToast('warning', 'No encontramos esa dirección. Revisala o seguí con la dirección escrita.');
+        return;
+      }
+
+      const firstResult = results[0];
+      renderLocationPreview({
+        address: address,
+        displayName: firstResult.display_name || address,
+        latitude: Number.parseFloat(firstResult.lat),
+        longitude: Number.parseFloat(firstResult.lon)
+      });
+      setLocationStatus('Revisá el mapa y confirmá la ubicación.');
+      showToast('info', 'Encontramos una ubicación para esa dirección.');
+    } catch (error) {
+      console.error('Error searching address location:', error);
+      clearPendingLocation();
+      setLocationStatus('No pudimos buscar la ubicación ahora. Podés seguir con la dirección escrita.');
+      showToast('warning', 'No pudimos buscar la ubicación en este momento.');
+    } finally {
+      setButtonLoading(elements.searchLocationButton, false, 'Buscando...', 'Buscar ubicación');
+    }
+  }
+
+  function confirmPendingLocation() {
+    if (!state.pendingLocationResult) {
+      showToast('warning', 'Buscá una dirección o usá tu ubicación antes de confirmar.');
+      return;
+    }
+
+    state.customerLocation.latitude = Number(state.pendingLocationResult.latitude);
+    state.customerLocation.longitude = Number(state.pendingLocationResult.longitude);
+    elements.customerAddress.value = state.pendingLocationResult.displayName || state.pendingLocationResult.address || elements.customerAddress.value;
+    elements.customerMapsUrl.value = 'https://www.google.com/maps?q=' + state.customerLocation.latitude + ',' + state.customerLocation.longitude;
+    setLocationStatus('Ubicación confirmada para tu pedido.');
+    showToast('success', 'Ubicación confirmada.');
+  }
+
   function attachEvents() {
     elements.categoryFilters.addEventListener('click', function onFilterClick(event) {
       const button = event.target.closest('[data-category-filter]');
@@ -747,7 +889,18 @@
     });
 
     elements.fulfillmentDay.addEventListener('change', renderScheduleTimeOptions);
+    elements.searchLocationButton.addEventListener('click', searchAddressLocation);
     elements.detectLocationButton.addEventListener('click', requestCurrentLocation);
+    elements.confirmLocationButton.addEventListener('click', confirmPendingLocation);
+    elements.clearLocationButton.addEventListener('click', function clearLocation() {
+      clearConfirmedLocation();
+      elements.customerMapsUrl.value = '';
+      setLocationStatus('Podés seguir con la dirección escrita o volver a buscar la ubicación.');
+      showToast('info', 'Ubicación limpiada.');
+    });
+    elements.customerAddress.addEventListener('input', function onAddressInput() {
+      clearConfirmedLocation({ keepPreview: false });
+    });
 
     elements.floatingCartButton.addEventListener('click', function openCart() {
       setCartOpen(true);
@@ -775,6 +928,12 @@
       const cleanedSelectionIds = state.selectedOptionIds.filter(function onlyOptionId(optionId) {
         return Number.isInteger(optionId) && optionId > 0;
       });
+
+      if (cleanedSelectionIds.length !== requiredSelections && requiredSelections > 1) {
+        elements.optionModalHint.textContent = 'Seleccioná la opción de cada docena antes de agregar.';
+        showToast('warning', 'Seleccioná la opción de cada docena antes de agregar.');
+        return;
+      }
 
       if (cleanedSelectionIds.length !== requiredSelections) {
         elements.optionModalHint.textContent = 'Selecciona una opcion para continuar.';

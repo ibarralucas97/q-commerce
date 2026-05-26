@@ -1,6 +1,13 @@
 const pool = require('../../config/db');
+const { getSchemaCapabilities } = require('../schema-capabilities.service');
 
 async function getSchedules() {
+  const capabilities = await getSchemaCapabilities();
+
+  if (!capabilities.hasFulfillmentSchedulesTable) {
+    return [];
+  }
+
   const result = await pool.query(`
     SELECT
       id,
@@ -19,6 +26,12 @@ async function getSchedules() {
 }
 
 async function getScheduleById(scheduleId) {
+  const capabilities = await getSchemaCapabilities();
+
+  if (!capabilities.hasFulfillmentSchedulesTable) {
+    return null;
+  }
+
   const result = await pool.query(`
     SELECT
       id,
@@ -38,6 +51,12 @@ async function getScheduleById(scheduleId) {
 }
 
 async function createSchedule(payload) {
+  const capabilities = await getSchemaCapabilities();
+
+  if (!capabilities.hasFulfillmentSchedulesTable) {
+    throw new Error('La tabla fulfillment_schedules no existe en la base actual. Ejecutá la migración 002_add_fulfillment_schedules.sql.');
+  }
+
   const result = await pool.query(`
     INSERT INTO fulfillment_schedules (
       day_of_week,
@@ -70,6 +89,12 @@ async function createSchedule(payload) {
 }
 
 async function updateSchedule(scheduleId, payload) {
+  const capabilities = await getSchemaCapabilities();
+
+  if (!capabilities.hasFulfillmentSchedulesTable) {
+    throw new Error('La tabla fulfillment_schedules no existe en la base actual. Ejecutá la migración 002_add_fulfillment_schedules.sql.');
+  }
+
   const result = await pool.query(`
     UPDATE fulfillment_schedules
     SET
@@ -102,6 +127,12 @@ async function updateSchedule(scheduleId, payload) {
 }
 
 async function softDeleteSchedule(scheduleId) {
+  const capabilities = await getSchemaCapabilities();
+
+  if (!capabilities.hasFulfillmentSchedulesTable) {
+    throw new Error('La tabla fulfillment_schedules no existe en la base actual. Ejecutá la migración 002_add_fulfillment_schedules.sql.');
+  }
+
   const result = await pool.query(`
     UPDATE fulfillment_schedules
     SET

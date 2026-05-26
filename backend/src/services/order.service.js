@@ -46,6 +46,36 @@ function supportsFulfillmentType(scheduleType, deliveryType) {
   return scheduleType === 'both' || scheduleType === deliveryType;
 }
 
+function inferOptionGroupCount(product) {
+  const parsedCount = Number.parseInt(product && product.option_group_count, 10);
+
+  if (Number.isInteger(parsedCount) && parsedCount > 1) {
+    return parsedCount;
+  }
+
+  const match = String(product && product.name ? product.name : '').match(/(\d+)\s*docenas?/i);
+
+  if (match) {
+    const inferredCount = Number.parseInt(match[1], 10);
+
+    if (Number.isInteger(inferredCount) && inferredCount > 1) {
+      return inferredCount;
+    }
+  }
+
+  return Number.isInteger(parsedCount) && parsedCount > 0 ? parsedCount : 1;
+}
+
+function inferOptionGroupLabel(product) {
+  if (product && product.option_group_label && String(product.option_group_label).trim() !== '') {
+    return String(product.option_group_label).trim();
+  }
+
+  return /docenas?/i.test(String(product && product.name ? product.name : ''))
+    ? 'Docena'
+    : 'Selección';
+}
+
 function buildSelectionDetail(product, selectedOptions) {
   if (!selectedOptions || selectedOptions.length === 0) {
     return [];
@@ -334,7 +364,7 @@ async function createOrder(payload) {
       const requiredOptionExists = productOptions.some(function isRequiredOption(option) {
         return option.is_required === true;
       });
-      const optionGroupCount = Number.parseInt(product.option_group_count, 10) || 1;
+      const optionGroupCount = inferOptionGroupCount(product);
       const selectedOptionIds = item.selected_option_ids || [];
 
       if (requiredOptionExists && selectedOptionIds.length === 0) {

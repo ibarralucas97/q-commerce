@@ -121,16 +121,37 @@
                   <p class="eyebrow">Ubicación</p>
                   <h3>Confirmá dónde entregamos</h3>
                 </div>
-                <button class="ghost-button" id="detectLocationButton" type="button">Usar mi ubicación</button>
+                <div class="location-card__actions">
+                  <button class="secondary-button" id="searchLocationButton" type="button">Buscar ubicación</button>
+                  <button class="ghost-button" id="detectLocationButton" type="button">Usar mi ubicación</button>
+                </div>
               </div>
 
               <label class="field">
                 <span>Link de Google Maps</span>
-                <input id="customerMapsUrl" name="customerMapsUrl" type="url" placeholder="https://maps.app.goo.gl/..." />
+                <input id="customerMapsUrl" name="customerMapsUrl" type="url" placeholder="Se completa al confirmar la ubicación" />
               </label>
 
+              <div class="location-preview is-hidden" id="locationPreview">
+                <div class="location-preview__meta">
+                  <strong id="locationPreviewTitle">Resultado encontrado</strong>
+                  <p class="form-hint" id="locationPreviewAddress"></p>
+                </div>
+                <div class="location-preview__map">
+                  <iframe
+                    id="locationPreviewFrame"
+                    title="Vista previa de ubicación"
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"></iframe>
+                </div>
+                <div class="form-actions">
+                  <button class="primary-button" id="confirmLocationButton" type="button">Confirmar ubicación</button>
+                  <button class="ghost-button" id="clearLocationButton" type="button">Limpiar</button>
+                </div>
+              </div>
+
               <p class="form-hint" id="locationStatus">
-                Podés escribir la dirección, usar geolocalización o pegar un link de Maps.
+                Escribí la dirección, buscala en el mapa o usá tu ubicación actual.
               </p>
             </div>
 

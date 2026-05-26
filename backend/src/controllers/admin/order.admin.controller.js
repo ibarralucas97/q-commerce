@@ -10,10 +10,13 @@ async function getOrders(req, res) {
 
     return res.json(orders);
   } catch (error) {
-    console.error('Error fetching admin orders:', error);
+    console.error('[GET /api/admin/orders] Error fetching admin orders:', error.message);
+    console.error(error.stack);
 
     return res.status(500).json({
-      error: 'internal server error'
+      error: 'ADMIN_ORDERS_FETCH_FAILED',
+      message: 'No se pudieron cargar los pedidos del panel.',
+      details: error.message
     });
   }
 }
@@ -38,10 +41,13 @@ async function getOrderById(req, res) {
 
     return res.json(order);
   } catch (error) {
-    console.error('Error fetching admin order:', error);
+    console.error('[GET /api/admin/orders/:id] Error fetching admin order:', error.message);
+    console.error(error.stack);
 
     return res.status(500).json({
-      error: 'internal server error'
+      error: 'ADMIN_ORDER_FETCH_FAILED',
+      message: 'No se pudo cargar el pedido solicitado.',
+      details: error.message
     });
   }
 }
@@ -82,10 +88,13 @@ async function updateOrderStatus(req, res) {
       order: order
     });
   } catch (error) {
-    console.error('Error updating admin order status:', error);
+    console.error('[PUT /api/admin/orders/:id/status] Error updating admin order status:', error.message);
+    console.error(error.stack);
 
     return res.status(500).json({
-      error: 'internal server error'
+      error: 'ADMIN_ORDER_STATUS_UPDATE_FAILED',
+      message: 'No se pudo actualizar el estado del pedido.',
+      details: error.message
     });
   }
 }
@@ -113,10 +122,13 @@ async function deleteOrder(req, res) {
       order: order
     });
   } catch (error) {
-    console.error('Error cancelling admin order:', error);
+    console.error('[DELETE /api/admin/orders/:id] Error cancelling admin order:', error.message);
+    console.error(error.stack);
 
     return res.status(500).json({
-      error: 'internal server error'
+      error: 'ADMIN_ORDER_CANCEL_FAILED',
+      message: 'No se pudo cancelar el pedido.',
+      details: error.message
     });
   }
 }

@@ -1,4 +1,5 @@
 const pool = require('../../config/db');
+const { getSchemaCapabilities } = require('../schema-capabilities.service');
 const { normalizeStatusForResponse, mapRequestedStatusToDb, toNumber } = require('../order.service');
 
 const ALLOWED_STATUSES = ['new', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
@@ -44,14 +45,15 @@ function mapOrderItemRow(row) {
 }
 
 async function getOrders(options) {
+  const capabilities = await getSchemaCapabilities();
   const filters = [];
   const values = [];
 
-  if (!options || options.scope !== 'all') {
+  if (capabilities.hasOrderClosureId && (!options || options.scope !== 'all')) {
     filters.push('closure_id IS NULL');
   }
 
-  if (options && Number.isInteger(options.closure_id)) {
+  if (capabilities.hasOrderClosureId && options && Number.isInteger(options.closure_id)) {
     values.push(options.closure_id);
     filters.push('closure_id = $' + values.length);
   }
@@ -64,12 +66,12 @@ async function getOrders(options) {
       customer_phone,
       delivery_type,
       address,
-      customer_latitude,
-      customer_longitude,
-      maps_url,
-      closure_id,
-      fulfillment_day,
-      fulfillment_time_range,
+      ${capabilities.hasOrderCustomerLatitude ? 'customer_latitude' : 'NULL::numeric AS customer_latitude'},
+      ${capabilities.hasOrderCustomerLongitude ? 'customer_longitude' : 'NULL::numeric AS customer_longitude'},
+      ${capabilities.hasOrderMapsUrl ? 'maps_url' : 'NULL::text AS maps_url'},
+      ${capabilities.hasOrderClosureId ? 'closure_id' : 'NULL::integer AS closure_id'},
+      ${capabilities.hasOrderFulfillmentDay ? 'fulfillment_day' : 'NULL::varchar AS fulfillment_day'},
+      ${capabilities.hasOrderFulfillmentTimeRange ? 'fulfillment_time_range' : 'NULL::varchar AS fulfillment_time_range'},
       notes,
       status,
       subtotal,
@@ -86,6 +88,7 @@ async function getOrders(options) {
 }
 
 async function getOrderById(orderId) {
+  const capabilities = await getSchemaCapabilities();
   const orderResult = await pool.query(`
     SELECT
       id,
@@ -93,12 +96,12 @@ async function getOrderById(orderId) {
       customer_phone,
       delivery_type,
       address,
-      customer_latitude,
-      customer_longitude,
-      maps_url,
-      closure_id,
-      fulfillment_day,
-      fulfillment_time_range,
+      ${capabilities.hasOrderCustomerLatitude ? 'customer_latitude' : 'NULL::numeric AS customer_latitude'},
+      ${capabilities.hasOrderCustomerLongitude ? 'customer_longitude' : 'NULL::numeric AS customer_longitude'},
+      ${capabilities.hasOrderMapsUrl ? 'maps_url' : 'NULL::text AS maps_url'},
+      ${capabilities.hasOrderClosureId ? 'closure_id' : 'NULL::integer AS closure_id'},
+      ${capabilities.hasOrderFulfillmentDay ? 'fulfillment_day' : 'NULL::varchar AS fulfillment_day'},
+      ${capabilities.hasOrderFulfillmentTimeRange ? 'fulfillment_time_range' : 'NULL::varchar AS fulfillment_time_range'},
       notes,
       status,
       subtotal,
@@ -120,11 +123,11 @@ async function getOrderById(orderId) {
       id,
       order_id,
       product_id,
-      product_option_id,
+      ${capabilities.hasOrderItemProductOptionId ? 'product_option_id' : 'NULL::integer AS product_option_id'},
       product_name,
-      product_option_name,
-      selection_summary,
-      selection_detail,
+      ${capabilities.hasOrderItemProductOptionName ? 'product_option_name' : 'NULL::varchar AS product_option_name'},
+      ${capabilities.hasOrderItemSelectionSummary ? 'selection_summary' : 'NULL::text AS selection_summary'},
+      ${capabilities.hasOrderItemSelectionDetail ? 'selection_detail' : '\'[]\'::jsonb AS selection_detail'},
       quantity,
       unit_price,
       subtotal,

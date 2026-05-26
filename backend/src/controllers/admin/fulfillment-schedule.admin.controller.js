@@ -42,9 +42,14 @@ async function getSchedules(req, res) {
 
     return res.json(schedules);
   } catch (error) {
-    console.error('Error fetching fulfillment schedules:', error);
+    console.error('[GET /api/admin/fulfillment-schedules] Error fetching fulfillment schedules:', error.message);
+    console.error(error.stack);
 
-    return res.status(500).json({ error: 'internal server error' });
+    return res.status(500).json({
+      error: 'ADMIN_FULFILLMENT_SCHEDULES_FETCH_FAILED',
+      message: 'No se pudieron cargar los horarios del panel.',
+      details: error.message
+    });
   }
 }
 
@@ -61,9 +66,14 @@ async function createSchedule(req, res) {
 
     return res.status(201).json(schedule);
   } catch (error) {
-    console.error('Error creating fulfillment schedule:', error);
+    console.error('[POST /api/admin/fulfillment-schedules] Error creating fulfillment schedule:', error.message);
+    console.error(error.stack);
 
-    return res.status(500).json({ error: 'internal server error' });
+    return res.status(500).json({
+      error: 'ADMIN_FULFILLMENT_SCHEDULE_CREATE_FAILED',
+      message: 'No se pudo crear el horario.',
+      details: error.message
+    });
   }
 }
 
@@ -92,9 +102,14 @@ async function updateSchedule(req, res) {
 
     return res.json(schedule);
   } catch (error) {
-    console.error('Error updating fulfillment schedule:', error);
+    console.error('[PUT /api/admin/fulfillment-schedules/:id] Error updating fulfillment schedule:', error.message);
+    console.error(error.stack);
 
-    return res.status(500).json({ error: 'internal server error' });
+    return res.status(500).json({
+      error: 'ADMIN_FULFILLMENT_SCHEDULE_UPDATE_FAILED',
+      message: 'No se pudo actualizar el horario.',
+      details: error.message
+    });
   }
 }
 
@@ -114,9 +129,14 @@ async function deleteSchedule(req, res) {
 
     return res.json(schedule);
   } catch (error) {
-    console.error('Error deleting fulfillment schedule:', error);
+    console.error('[DELETE /api/admin/fulfillment-schedules/:id] Error deleting fulfillment schedule:', error.message);
+    console.error(error.stack);
 
-    return res.status(500).json({ error: 'internal server error' });
+    return res.status(500).json({
+      error: 'ADMIN_FULFILLMENT_SCHEDULE_DELETE_FAILED',
+      message: 'No se pudo desactivar el horario.',
+      details: error.message
+    });
   }
 }
 

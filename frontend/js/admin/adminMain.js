@@ -160,7 +160,9 @@
     settingsDeliveryFee: document.getElementById('settingsDeliveryFee'),
     settingsLogoUrl: document.getElementById('settingsLogoUrl'),
     settingsBannerUrl: document.getElementById('settingsBannerUrl'),
+    settingsPrimaryColorPicker: document.getElementById('settingsPrimaryColorPicker'),
     settingsPrimaryColor: document.getElementById('settingsPrimaryColor'),
+    settingsSecondaryColorPicker: document.getElementById('settingsSecondaryColorPicker'),
     settingsSecondaryColor: document.getElementById('settingsSecondaryColor'),
     settingsDeliveryEnabled: document.getElementById('settingsDeliveryEnabled'),
     settingsPickupEnabled: document.getElementById('settingsPickupEnabled'),
@@ -474,8 +476,30 @@
     }) || null;
   }
 
+  function inferDocenaCountFromName(name) {
+    const match = String(name || '').match(/(\d+)\s*docenas?/i);
+
+    if (!match) {
+      return 1;
+    }
+
+    const parsedCount = Number.parseInt(match[1], 10);
+    return Number.isInteger(parsedCount) && parsedCount > 1 ? parsedCount : 1;
+  }
+
   function getProductOptionGroupCount(product) {
     const parsedCount = Number.parseInt(product && product.option_group_count, 10);
+
+    if (Number.isInteger(parsedCount) && parsedCount > 1) {
+      return parsedCount;
+    }
+
+    const inferredCount = inferDocenaCountFromName(product && product.name);
+
+    if (inferredCount > 1) {
+      return inferredCount;
+    }
+
     return Number.isInteger(parsedCount) && parsedCount > 0 ? parsedCount : 1;
   }
 
@@ -736,14 +760,42 @@
     elements.settingsZone.value = state.settings.zone || '';
     elements.settingsCity.value = state.settings.city || '';
     elements.settingsCurrency.value = state.settings.currency_symbol || 'ARS';
-    elements.settingsDeliveryFee.value = state.settings.delivery_fee || 0;
+    elements.settingsDeliveryFee.value = state.settings.delivery_fee == null ? 500 : state.settings.delivery_fee;
     elements.settingsLogoUrl.value = state.settings.logo_url || '';
     elements.settingsBannerUrl.value = state.settings.banner_url || '';
-    elements.settingsPrimaryColor.value = state.settings.primary_color || '';
-    elements.settingsSecondaryColor.value = state.settings.secondary_color || '';
+    elements.settingsPrimaryColor.value = state.settings.primary_color || '#c7522a';
+    elements.settingsSecondaryColor.value = state.settings.secondary_color || '#f5d6a1';
+    syncColorField(elements.settingsPrimaryColor, elements.settingsPrimaryColorPicker, '#c7522a');
+    syncColorField(elements.settingsSecondaryColor, elements.settingsSecondaryColorPicker, '#f5d6a1');
     elements.settingsDeliveryEnabled.checked = Boolean(state.settings.delivery_enabled);
     elements.settingsPickupEnabled.checked = Boolean(state.settings.pickup_enabled);
     elements.settingsIsActive.checked = Boolean(state.settings.is_active);
+  }
+
+  function isValidHexColor(value) {
+    return /^#([0-9a-f]{6}|[0-9a-f]{3})$/i.test(String(value || '').trim());
+  }
+
+  function normalizeHexColor(value, fallback) {
+    const trimmedValue = String(value || '').trim();
+
+    if (isValidHexColor(trimmedValue)) {
+      return trimmedValue;
+    }
+
+    return fallback;
+  }
+
+  function syncColorField(textInput, pickerInput, fallbackColor) {
+    const normalizedColor = normalizeHexColor(textInput && textInput.value, fallbackColor);
+
+    if (textInput) {
+      textInput.value = normalizedColor;
+    }
+
+    if (pickerInput) {
+      pickerInput.value = normalizedColor;
+    }
   }
 
   function renderStatusOptions(selectedStatus) {
@@ -1103,7 +1155,7 @@
 
   async function loadData() {
     try {
-      const data = await Promise.all([
+      const resources = await Promise.allSettled([
         global.AdminApi.getDashboardSummary(),
         global.AdminApi.getClosures(),
         global.AdminApi.getOrders(),
@@ -1113,18 +1165,47 @@
         global.AdminApi.getFulfillmentSchedules(),
         global.AdminApi.getExpenses()
       ]);
+      const failures = [];
 
-      state.summary = data[0];
-      state.closures = data[1];
-      state.orders = data[2];
-      state.products = data[3];
-      state.categories = data[4];
-      state.settings = data[5];
-      state.schedules = data[6];
-      state.expenses = data[7];
-      state.productOptions = state.selectedProductId && state.isProductOptionsOpen
-        ? await global.AdminApi.getProductOptions(state.selectedProductId)
-        : [];
+      function resolveResource(index, fallbackValue, label) {
+        const resource = resources[index];
+
+        if (resource.status === 'fulfilled') {
+          return resource.value;
+        }
+
+        if (resource.reason && resource.reason.status === 401) {
+          throw resource.reason;
+        }
+
+        console.error('Admin resource failed:', label, resource.reason);
+        failures.push(label);
+        return fallbackValue;
+      }
+
+      state.summary = resolveResource(0, null, 'Dashboard');
+      state.closures = resolveResource(1, [], 'Caja');
+      state.orders = resolveResource(2, [], 'Pedidos');
+      state.products = resolveResource(3, [], 'Productos');
+      state.categories = resolveResource(4, [], 'Categorías');
+      state.settings = resolveResource(5, state.settings, 'Configuración');
+      state.schedules = resolveResource(6, [], 'Horarios');
+      state.expenses = resolveResource(7, [], 'Gastos');
+      state.productOptions = [];
+
+      if (state.selectedProductId && state.isProductOptionsOpen) {
+        try {
+          state.productOptions = await global.AdminApi.getProductOptions(state.selectedProductId);
+        } catch (error) {
+          if (error && error.status === 401) {
+            throw error;
+          }
+
+          console.error('Admin product options failed:', error);
+          state.productOptions = [];
+          failures.push('Opciones de producto');
+        }
+      }
 
       populateCategorySelect();
       fillSettingsForm();
@@ -1140,7 +1221,15 @@
       renderManualOrderItems();
       renderOrderDetailPlaceholder();
       updateProductImagePreview();
-      setMessage('Panel actualizado.');
+
+      if (failures.length > 0) {
+        const uniqueFailures = Array.from(new Set(failures));
+        const failureMessage = 'Se cargó el panel con secciones pendientes: ' + uniqueFailures.join(', ') + '.';
+        setMessage(failureMessage);
+        showToast('warning', failureMessage);
+      } else {
+        setMessage('Panel actualizado.');
+      }
     } catch (error) {
       handleApiError(error);
     }
@@ -1799,6 +1888,9 @@
     event.preventDefault();
 
     try {
+      syncColorField(elements.settingsPrimaryColor, elements.settingsPrimaryColorPicker, '#c7522a');
+      syncColorField(elements.settingsSecondaryColor, elements.settingsSecondaryColorPicker, '#f5d6a1');
+
       await global.AdminApi.updateSettings({
         store_name: elements.settingsStoreName.value.trim(),
         store_description: elements.settingsDescription.value.trim(),
@@ -1807,11 +1899,11 @@
         zone: elements.settingsZone.value.trim(),
         city: elements.settingsCity.value.trim(),
         currency_symbol: elements.settingsCurrency.value.trim(),
-        delivery_fee: Number(elements.settingsDeliveryFee.value || 0),
+        delivery_fee: Number(elements.settingsDeliveryFee.value || 500),
         delivery_enabled: elements.settingsDeliveryEnabled.checked,
         pickup_enabled: elements.settingsPickupEnabled.checked,
-        primary_color: elements.settingsPrimaryColor.value.trim(),
-        secondary_color: elements.settingsSecondaryColor.value.trim(),
+        primary_color: normalizeHexColor(elements.settingsPrimaryColor.value, '#c7522a'),
+        secondary_color: normalizeHexColor(elements.settingsSecondaryColor.value, '#f5d6a1'),
         logo_url: elements.settingsLogoUrl.value.trim(),
         banner_url: elements.settingsBannerUrl.value.trim(),
         is_active: elements.settingsIsActive.checked
@@ -1910,6 +2002,22 @@
       resetScheduleForm();
       closeScheduleEditor();
       showToast('info', 'Edición de horario cancelada.');
+    });
+    elements.settingsPrimaryColorPicker.addEventListener('input', function syncPrimaryFromPicker() {
+      elements.settingsPrimaryColor.value = elements.settingsPrimaryColorPicker.value;
+    });
+    elements.settingsSecondaryColorPicker.addEventListener('input', function syncSecondaryFromPicker() {
+      elements.settingsSecondaryColor.value = elements.settingsSecondaryColorPicker.value;
+    });
+    elements.settingsPrimaryColor.addEventListener('input', function syncPrimaryFromText() {
+      if (isValidHexColor(elements.settingsPrimaryColor.value)) {
+        elements.settingsPrimaryColorPicker.value = elements.settingsPrimaryColor.value.trim();
+      }
+    });
+    elements.settingsSecondaryColor.addEventListener('input', function syncSecondaryFromText() {
+      if (isValidHexColor(elements.settingsSecondaryColor.value)) {
+        elements.settingsSecondaryColorPicker.value = elements.settingsSecondaryColor.value.trim();
+      }
     });
     elements.settingsForm.addEventListener('submit', handleSettingsSubmit);
   }

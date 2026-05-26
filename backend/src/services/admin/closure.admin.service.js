@@ -1,4 +1,5 @@
 const pool = require('../../config/db');
+const { getSchemaCapabilities } = require('../schema-capabilities.service');
 
 function toNumber(value) {
   return Number.parseFloat(value) || 0;
@@ -38,6 +39,12 @@ function buildClosureCode() {
 }
 
 async function getClosures() {
+  const capabilities = await getSchemaCapabilities();
+
+  if (!capabilities.hasOrderClosuresTable) {
+    return [];
+  }
+
   const result = await pool.query(`
     SELECT
       id,
@@ -61,6 +68,12 @@ async function getClosures() {
 }
 
 async function getClosureById(closureId) {
+  const capabilities = await getSchemaCapabilities();
+
+  if (!capabilities.hasOrderClosuresTable) {
+    return null;
+  }
+
   const closureResult = await pool.query(`
     SELECT
       id,
@@ -96,7 +109,7 @@ async function getClosureById(closureId) {
       total,
       created_at
     FROM orders
-    WHERE closure_id = $1
+    WHERE ${capabilities.hasOrderClosureId ? 'closure_id = $1' : '1 = 0'}
     ORDER BY created_at DESC, id DESC
   `, [closureId]);
 
@@ -104,12 +117,12 @@ async function getClosureById(closureId) {
     SELECT
       id,
       title,
-      category,
+      ${capabilities.hasExpenseCategory ? 'category' : 'NULL::varchar AS category'},
       amount,
       expense_date,
       created_at
     FROM expenses
-    WHERE closure_id = $1
+    WHERE ${capabilities.hasExpenseClosureId ? 'closure_id = $1' : '1 = 0'}
     ORDER BY expense_date DESC, id DESC
   `, [closureId]);
 
@@ -121,6 +134,15 @@ async function getClosureById(closureId) {
 }
 
 async function closeActiveBatch(notes) {
+  const capabilities = await getSchemaCapabilities();
+
+  if (!capabilities.hasOrderClosuresTable || !capabilities.hasOrderClosureId || !capabilities.hasExpenseClosureId) {
+    return {
+      error: 'La base actual no tiene habilitado el cierre de caja. Ejecutá la migración 005_add_order_closures.sql.',
+      statusCode: 400
+    };
+  }
+
   const client = await pool.connect();
 
   try {
@@ -169,7 +191,10 @@ async function closeActiveBatch(notes) {
     const productsSummaryResult = await client.query(`
       SELECT
         oi.product_name,
-        COALESCE(oi.selection_summary, oi.product_option_name) AS selection_label,
+        COALESCE(
+          ${capabilities.hasOrderItemSelectionSummary ? 'oi.selection_summary' : 'NULL'},
+          ${capabilities.hasOrderItemProductOptionName ? 'oi.product_option_name' : 'NULL'}
+        ) AS selection_label,
         SUM(oi.quantity)::int AS total_quantity,
         SUM(oi.subtotal) AS total_amount
       FROM order_items oi

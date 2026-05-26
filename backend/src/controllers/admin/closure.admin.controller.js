@@ -5,8 +5,13 @@ async function getClosures(req, res) {
     const closures = await closureAdminService.getClosures();
     return res.json(closures);
   } catch (error) {
-    console.error('Error fetching closures:', error);
-    return res.status(500).json({ error: 'internal server error' });
+    console.error('[GET /api/admin/closures] Error fetching closures:', error.message);
+    console.error(error.stack);
+    return res.status(500).json({
+      error: 'ADMIN_CLOSURES_FETCH_FAILED',
+      message: 'No se pudo cargar la caja del panel.',
+      details: error.message
+    });
   }
 }
 
@@ -26,8 +31,13 @@ async function getClosureById(req, res) {
 
     return res.json(closure);
   } catch (error) {
-    console.error('Error fetching closure detail:', error);
-    return res.status(500).json({ error: 'internal server error' });
+    console.error('[GET /api/admin/closures/:id] Error fetching closure detail:', error.message);
+    console.error(error.stack);
+    return res.status(500).json({
+      error: 'ADMIN_CLOSURE_FETCH_FAILED',
+      message: 'No se pudo cargar el detalle del cierre.',
+      details: error.message
+    });
   }
 }
 
@@ -44,8 +54,13 @@ async function closeActiveBatch(req, res) {
 
     return res.status(201).json(result);
   } catch (error) {
-    console.error('Error closing active batch:', error);
-    return res.status(500).json({ error: 'internal server error' });
+    console.error('[POST /api/admin/closures/close] Error closing active batch:', error.message);
+    console.error(error.stack);
+    return res.status(500).json({
+      error: 'ADMIN_CLOSURE_CREATE_FAILED',
+      message: 'No se pudo cerrar la caja activa.',
+      details: error.message
+    });
   }
 }
 

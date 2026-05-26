@@ -12,15 +12,35 @@ async function loadCapabilities() {
     WHERE table_schema = 'public'
       AND (
         (table_name = 'products' AND column_name = ANY($1::text[]))
+        OR (table_name = 'orders' AND column_name = ANY($2::text[]))
+        OR (table_name = 'order_items' AND column_name = ANY($3::text[]))
+        OR (table_name = 'expenses' AND column_name = ANY($4::text[]))
       )
   `, [[
     'option_group_count',
     'option_group_label'
+  ], [
+    'customer_latitude',
+    'customer_longitude',
+    'maps_url',
+    'closure_id',
+    'fulfillment_day',
+    'fulfillment_time_range'
+  ], [
+    'product_option_id',
+    'product_option_name',
+    'selection_summary',
+    'selection_detail'
+  ], [
+    'category',
+    'closure_id'
   ]]);
 
   const relationsResult = await pool.query(`
     SELECT
-      to_regclass('public.product_options') IS NOT NULL AS has_product_options
+      to_regclass('public.product_options') IS NOT NULL AS has_product_options,
+      to_regclass('public.fulfillment_schedules') IS NOT NULL AS has_fulfillment_schedules,
+      to_regclass('public.order_closures') IS NOT NULL AS has_order_closures
   `);
 
   const productColumns = new Set(
@@ -32,11 +52,53 @@ async function loadCapabilities() {
         return row.column_name;
       })
   );
+  const orderColumns = new Set(
+    columnsResult.rows
+      .filter(function onlyOrderColumns(row) {
+        return row.table_name === 'orders';
+      })
+      .map(function toColumnName(row) {
+        return row.column_name;
+      })
+  );
+  const orderItemColumns = new Set(
+    columnsResult.rows
+      .filter(function onlyOrderItemColumns(row) {
+        return row.table_name === 'order_items';
+      })
+      .map(function toColumnName(row) {
+        return row.column_name;
+      })
+  );
+  const expenseColumns = new Set(
+    columnsResult.rows
+      .filter(function onlyExpenseColumns(row) {
+        return row.table_name === 'expenses';
+      })
+      .map(function toColumnName(row) {
+        return row.column_name;
+      })
+  );
+  const relationRow = relationsResult.rows[0] || {};
 
   return {
     hasProductOptionGroupCount: productColumns.has('option_group_count'),
     hasProductOptionGroupLabel: productColumns.has('option_group_label'),
-    hasProductOptionsTable: Boolean(relationsResult.rows[0] && relationsResult.rows[0].has_product_options)
+    hasProductOptionsTable: Boolean(relationRow.has_product_options),
+    hasFulfillmentSchedulesTable: Boolean(relationRow.has_fulfillment_schedules),
+    hasOrderClosuresTable: Boolean(relationRow.has_order_closures),
+    hasOrderCustomerLatitude: orderColumns.has('customer_latitude'),
+    hasOrderCustomerLongitude: orderColumns.has('customer_longitude'),
+    hasOrderMapsUrl: orderColumns.has('maps_url'),
+    hasOrderClosureId: orderColumns.has('closure_id'),
+    hasOrderFulfillmentDay: orderColumns.has('fulfillment_day'),
+    hasOrderFulfillmentTimeRange: orderColumns.has('fulfillment_time_range'),
+    hasOrderItemProductOptionId: orderItemColumns.has('product_option_id'),
+    hasOrderItemProductOptionName: orderItemColumns.has('product_option_name'),
+    hasOrderItemSelectionSummary: orderItemColumns.has('selection_summary'),
+    hasOrderItemSelectionDetail: orderItemColumns.has('selection_detail'),
+    hasExpenseCategory: expenseColumns.has('category'),
+    hasExpenseClosureId: expenseColumns.has('closure_id')
   };
 }
 

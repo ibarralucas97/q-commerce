@@ -36,9 +36,14 @@ async function getExpenses(req, res) {
 
     return res.json(expenses);
   } catch (error) {
-    console.error('Error fetching expenses:', error);
+    console.error('[GET /api/admin/expenses] Error fetching expenses:', error.message);
+    console.error(error.stack);
 
-    return res.status(500).json({ error: 'internal server error' });
+    return res.status(500).json({
+      error: 'ADMIN_EXPENSES_FETCH_FAILED',
+      message: 'No se pudieron cargar los gastos del panel.',
+      details: error.message
+    });
   }
 }
 
@@ -58,9 +63,14 @@ async function getExpenseById(req, res) {
 
     return res.json(expense);
   } catch (error) {
-    console.error('Error fetching expense:', error);
+    console.error('[GET /api/admin/expenses/:id] Error fetching expense:', error.message);
+    console.error(error.stack);
 
-    return res.status(500).json({ error: 'internal server error' });
+    return res.status(500).json({
+      error: 'ADMIN_EXPENSE_FETCH_FAILED',
+      message: 'No se pudo cargar el gasto solicitado.',
+      details: error.message
+    });
   }
 }
 
@@ -77,9 +87,14 @@ async function createExpense(req, res) {
 
     return res.status(201).json(expense);
   } catch (error) {
-    console.error('Error creating expense:', error);
+    console.error('[POST /api/admin/expenses] Error creating expense:', error.message);
+    console.error(error.stack);
 
-    return res.status(500).json({ error: 'internal server error' });
+    return res.status(500).json({
+      error: 'ADMIN_EXPENSE_CREATE_FAILED',
+      message: 'No se pudo crear el gasto.',
+      details: error.message
+    });
   }
 }
 
@@ -106,9 +121,14 @@ async function updateExpense(req, res) {
 
     return res.json(expense);
   } catch (error) {
-    console.error('Error updating expense:', error);
+    console.error('[PUT /api/admin/expenses/:id] Error updating expense:', error.message);
+    console.error(error.stack);
 
-    return res.status(500).json({ error: 'internal server error' });
+    return res.status(500).json({
+      error: 'ADMIN_EXPENSE_UPDATE_FAILED',
+      message: 'No se pudo actualizar el gasto.',
+      details: error.message
+    });
   }
 }
 
@@ -131,9 +151,14 @@ async function deleteExpense(req, res) {
       expense: expense
     });
   } catch (error) {
-    console.error('Error deleting expense:', error);
+    console.error('[DELETE /api/admin/expenses/:id] Error deleting expense:', error.message);
+    console.error(error.stack);
 
-    return res.status(500).json({ error: 'internal server error' });
+    return res.status(500).json({
+      error: 'ADMIN_EXPENSE_DELETE_FAILED',
+      message: 'No se pudo eliminar el gasto.',
+      details: error.message
+    });
   }
 }
 
