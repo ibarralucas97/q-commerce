@@ -10,6 +10,12 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
     <link rel="stylesheet" href="./assets/css/styles.css" />
   </head>
   <body>
@@ -95,7 +101,7 @@
 
             <label class="field">
               <span>Telefono</span>
-              <input id="customerPhone" name="customerPhone" type="tel" placeholder="Tu WhatsApp" required />
+              <input id="customerPhone" name="customerPhone" type="tel" inputmode="numeric" pattern="[0-9]*" placeholder="3511234567" required />
             </label>
 
             <fieldset class="delivery-options">
@@ -115,7 +121,13 @@
               <input id="customerAddress" name="customerAddress" type="text" placeholder="Calle, numero y referencia" />
             </label>
 
-            <div class="location-card">
+            <div class="pickup-card is-hidden" id="pickupInfoCard">
+              <p class="eyebrow">Retiro</p>
+              <h3>Retirás tu pedido por</h3>
+              <p class="pickup-card__address" id="pickupStoreAddress">Dirección del local no disponible.</p>
+            </div>
+
+            <div class="location-card" id="locationCard">
               <div class="section-heading section-heading--compact">
                 <div>
                   <p class="eyebrow">Ubicación</p>
@@ -137,6 +149,8 @@
                   <strong id="locationPreviewTitle">Resultado encontrado</strong>
                   <p class="form-hint" id="locationPreviewAddress"></p>
                 </div>
+                <p class="form-hint">¿El pin está bien ubicado? Si no coincide, ajustalo manualmente.</p>
+                <div class="location-preview__map is-hidden" id="locationMapCanvas"></div>
                 <div class="location-preview__map">
                   <iframe
                     id="locationPreviewFrame"
@@ -233,6 +247,11 @@
 
     <script src="./js/components/toast.js" defer></script>
     <script src="./js/components/uiLabels.js" defer></script>
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+      defer></script>
     <script src="./js/api/clientApi.js" defer></script>
     <script src="./js/client/cart.js" defer></script>
     <script src="./js/client/main.js" defer></script>

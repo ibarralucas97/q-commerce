@@ -28,6 +28,7 @@
     isManualOrderOpen: false,
     manualOrderItems: []
   };
+  let confirmResolver = null;
 
   const elements = {
     loginView: document.getElementById('loginView'),
@@ -166,7 +167,13 @@
     settingsSecondaryColor: document.getElementById('settingsSecondaryColor'),
     settingsDeliveryEnabled: document.getElementById('settingsDeliveryEnabled'),
     settingsPickupEnabled: document.getElementById('settingsPickupEnabled'),
-    settingsIsActive: document.getElementById('settingsIsActive')
+    settingsIsActive: document.getElementById('settingsIsActive'),
+    confirmDialog: document.getElementById('confirmDialog'),
+    confirmDialogBackdrop: document.getElementById('confirmDialogBackdrop'),
+    confirmDialogTitle: document.getElementById('confirmDialogTitle'),
+    confirmDialogMessage: document.getElementById('confirmDialogMessage'),
+    confirmDialogConfirm: document.getElementById('confirmDialogConfirm'),
+    confirmDialogCancel: document.getElementById('confirmDialogCancel')
   };
 
   function setMessage(message) {
@@ -181,6 +188,29 @@
     if (global.Toast && typeof global.Toast[type] === 'function') {
       global.Toast[type](message);
     }
+  }
+
+  function closeConfirmDialog(result) {
+    elements.confirmDialog.classList.add('is-hidden');
+    elements.confirmDialog.setAttribute('aria-hidden', 'true');
+
+    if (confirmResolver) {
+      const resolver = confirmResolver;
+      confirmResolver = null;
+      resolver(Boolean(result));
+    }
+  }
+
+  function requestConfirmation(config) {
+    elements.confirmDialogTitle.textContent = config.title || 'Confirmar acción';
+    elements.confirmDialogMessage.textContent = config.message || '¿Querés continuar?';
+    elements.confirmDialogConfirm.textContent = config.confirmText || 'Confirmar';
+    elements.confirmDialog.classList.remove('is-hidden');
+    elements.confirmDialog.setAttribute('aria-hidden', 'false');
+
+    return new Promise(function waitForConfirmation(resolve) {
+      confirmResolver = resolve;
+    });
   }
 
   function escapeHtml(value) {
@@ -882,7 +912,7 @@
         '      </select>',
         locationUrl ? '      <a class="status-action" href="' + escapeHtml(locationUrl) + '" target="_blank" rel="noopener noreferrer">Abrir ubicación</a>' : '',
         '      <button class="status-action" type="button" data-view-order="' + order.id + '">Ver</button>',
-        '      <button class="status-action" type="button" data-cancel-order="' + order.id + '">Cancelar</button>',
+        '      <button class="status-action" type="button" data-cancel-order="' + order.id + '">Eliminar</button>',
         '    </div>',
         '  </div>',
         '</article>'
@@ -934,7 +964,7 @@
         '    <div class="card-actions admin-product-actions">',
         '      <button class="status-action admin-product-action-btn" type="button" data-edit-product="' + product.id + '">Editar</button>',
         '      <button class="status-action admin-product-action-btn" type="button" data-manage-options="' + product.id + '">Opciones</button>',
-        '      <button class="status-action admin-product-action-btn" type="button" data-delete-product="' + product.id + '">Desactivar</button>',
+        '      <button class="status-action admin-product-action-btn" type="button" data-delete-product="' + product.id + '">Eliminar</button>',
         '    </div>',
         '  </div>',
         '</article>'
@@ -970,7 +1000,7 @@
         '  </div>',
         '  <div class="card-actions">',
         '    <button class="status-action" type="button" data-edit-option="' + option.id + '">Editar</button>',
-        '    <button class="status-action" type="button" data-delete-option="' + option.id + '">Desactivar</button>',
+        '    <button class="status-action" type="button" data-delete-option="' + option.id + '">Eliminar</button>',
         '  </div>',
         '</article>'
       ].join('');
@@ -1030,7 +1060,7 @@
         '  </div>',
         '  <div class="card-actions">',
         '    <button class="status-action" type="button" data-edit-category="' + category.id + '">Editar</button>',
-        '    <button class="status-action" type="button" data-delete-category="' + category.id + '">Desactivar</button>',
+        '    <button class="status-action" type="button" data-delete-category="' + category.id + '">Eliminar</button>',
         '  </div>',
         '</article>'
       ].join('');
@@ -1058,7 +1088,7 @@
         '  </div>',
         '  <div class="card-actions">',
         '    <button class="status-action" type="button" data-edit-schedule="' + schedule.id + '">Editar</button>',
-        '    <button class="status-action" type="button" data-delete-schedule="' + schedule.id + '">Desactivar</button>',
+        '    <button class="status-action" type="button" data-delete-schedule="' + schedule.id + '">Eliminar</button>',
         '  </div>',
         '</article>'
       ].join('');
@@ -1309,9 +1339,19 @@
 
     if (cancelButton) {
       try {
+        const shouldDelete = await requestConfirmation({
+          title: 'Eliminar pedido',
+          message: '¿Seguro que querés eliminar este pedido? Se marcará como cancelado para conservar el historial.',
+          confirmText: 'Eliminar'
+        });
+
+        if (!shouldDelete) {
+          return;
+        }
+
         await global.AdminApi.cancelOrder(Number.parseInt(cancelButton.getAttribute('data-cancel-order'), 10));
         await loadData();
-        showToast('warning', 'Pedido cancelado.');
+        showToast('warning', 'Pedido eliminado.');
       } catch (error) {
         handleApiError(error);
       }
@@ -1439,9 +1479,19 @@
 
     if (deleteButton) {
       try {
+        const shouldDelete = await requestConfirmation({
+          title: 'Eliminar producto',
+          message: '¿Seguro que querés eliminar este producto? Esta acción lo quita del catálogo.',
+          confirmText: 'Eliminar'
+        });
+
+        if (!shouldDelete) {
+          return;
+        }
+
         await global.AdminApi.deleteProduct(Number.parseInt(deleteButton.getAttribute('data-delete-product'), 10));
         await loadData();
-        showToast('warning', 'Producto desactivado.');
+        showToast('warning', 'Producto eliminado.');
       } catch (error) {
         handleApiError(error);
       }
@@ -1508,10 +1558,20 @@
 
     if (deleteButton) {
       try {
+        const shouldDelete = await requestConfirmation({
+          title: 'Eliminar opción',
+          message: '¿Seguro que querés eliminar esta opción del producto?',
+          confirmText: 'Eliminar'
+        });
+
+        if (!shouldDelete) {
+          return;
+        }
+
         await global.AdminApi.deleteProductOption(Number.parseInt(deleteButton.getAttribute('data-delete-option'), 10));
         state.productOptions = await global.AdminApi.getProductOptions(state.selectedProductId);
         renderProductOptions();
-        showToast('warning', 'Opcion desactivada.');
+        showToast('warning', 'Opción eliminada.');
       } catch (error) {
         handleApiError(error);
       }
@@ -1627,9 +1687,19 @@
 
     if (deleteButton) {
       try {
+        const shouldDelete = await requestConfirmation({
+          title: 'Eliminar categoría',
+          message: '¿Seguro que querés eliminar esta categoría? Los productos históricos no se perderán.',
+          confirmText: 'Eliminar'
+        });
+
+        if (!shouldDelete) {
+          return;
+        }
+
         await global.AdminApi.deleteCategory(Number.parseInt(deleteButton.getAttribute('data-delete-category'), 10));
         await loadData();
-        showToast('warning', 'Categoria desactivada.');
+        showToast('warning', 'Categoría eliminada.');
       } catch (error) {
         handleApiError(error);
       }
@@ -1751,7 +1821,7 @@
     }
 
     const customerName = elements.manualOrderCustomerName.value.trim();
-    const customerPhone = elements.manualOrderCustomerPhone.value.trim();
+    const customerPhone = String(elements.manualOrderCustomerPhone.value || '').replace(/\D/g, '');
     const deliveryType = elements.manualOrderDeliveryType.value;
     const address = elements.manualOrderAddress.value.trim();
     const notes = elements.manualOrderNotes.value.trim();
@@ -1875,9 +1945,19 @@
 
     if (deleteButton) {
       try {
+        const shouldDelete = await requestConfirmation({
+          title: 'Eliminar horario',
+          message: '¿Seguro que querés eliminar este horario?',
+          confirmText: 'Eliminar'
+        });
+
+        if (!shouldDelete) {
+          return;
+        }
+
         await global.AdminApi.deleteFulfillmentSchedule(Number.parseInt(deleteButton.getAttribute('data-delete-schedule'), 10));
         await loadData();
-        showToast('warning', 'Horario desactivado.');
+        showToast('warning', 'Horario eliminado.');
       } catch (error) {
         handleApiError(error);
       }
@@ -1951,6 +2031,13 @@
     elements.manualOrderItemsList.addEventListener('click', handleManualOrderItemsClick);
     elements.manualOrderItemsList.addEventListener('change', handleManualOrderItemsChange);
     elements.manualOrderItemsList.addEventListener('input', handleManualOrderItemsChange);
+    elements.manualOrderCustomerPhone.addEventListener('input', function sanitizeManualOrderPhone() {
+      const sanitizedValue = String(elements.manualOrderCustomerPhone.value || '').replace(/\D/g, '');
+
+      if (elements.manualOrderCustomerPhone.value !== sanitizedValue) {
+        elements.manualOrderCustomerPhone.value = sanitizedValue;
+      }
+    });
     elements.productForm.addEventListener('submit', handleProductSubmit);
     elements.productImageUrl.addEventListener('input', updateProductImagePreview);
     elements.uploadProductImageButton.addEventListener('click', handleProductImageUpload);
@@ -2018,6 +2105,15 @@
       if (isValidHexColor(elements.settingsSecondaryColor.value)) {
         elements.settingsSecondaryColorPicker.value = elements.settingsSecondaryColor.value.trim();
       }
+    });
+    elements.confirmDialogConfirm.addEventListener('click', function confirmDeletion() {
+      closeConfirmDialog(true);
+    });
+    elements.confirmDialogCancel.addEventListener('click', function cancelDeletion() {
+      closeConfirmDialog(false);
+    });
+    elements.confirmDialogBackdrop.addEventListener('click', function closeDeletionDialog() {
+      closeConfirmDialog(false);
     });
     elements.settingsForm.addEventListener('submit', handleSettingsSubmit);
   }

@@ -103,6 +103,14 @@ button {
   color: var(--muted);
 }
 
+.field-help {
+  display: block;
+  margin-top: 0.5rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 .field input,
 .field select,
 .field textarea {
@@ -511,6 +519,33 @@ button {
   color: var(--muted);
 }
 
+.confirm-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.confirm-dialog__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(6px);
+}
+
+.confirm-dialog__card {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 420px);
+  padding: 1.1rem;
+  border-radius: 24px;
+  border: 1px solid var(--border);
+  background: rgba(24, 27, 32, 0.98);
+  box-shadow: var(--shadow);
+}
+
 .manual-order-summary {
   display: flex;
   align-items: center;
@@ -722,6 +757,15 @@ button {
   .product-admin-card .admin-product-action-btn {
     flex: 1 1 calc(33.333% - 0.4rem);
     justify-content: center;
+  }
+
+  .confirm-dialog {
+    align-items: end;
+  }
+
+  .confirm-dialog__card {
+    width: 100%;
+    border-radius: 22px;
   }
 
   .manual-order-line__meta {

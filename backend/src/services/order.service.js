@@ -10,6 +10,10 @@ function toNumber(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function sanitizePhoneNumber(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
 function normalizeStatusForResponse(status) {
   return status === 'pending' ? 'new' : status;
 }
@@ -110,7 +114,7 @@ function validateOrderPayload(payload) {
     return 'customer_name is required';
   }
 
-  if (typeof payload.customer_phone !== 'string' || payload.customer_phone.trim() === '') {
+  if (typeof payload.customer_phone !== 'string' || payload.customer_phone === '') {
     return 'customer_phone is required';
   }
 
@@ -274,6 +278,12 @@ async function getFulfillmentSchedules(client) {
 }
 
 async function createOrder(payload) {
+  payload.customer_phone = sanitizePhoneNumber(payload.customer_phone);
+
+  if (typeof payload.address === 'string') {
+    payload.address = payload.address.trim();
+  }
+
   const validationError = validateOrderPayload(payload);
 
   if (validationError) {
@@ -490,7 +500,9 @@ async function createOrder(payload) {
     const subtotal = orderItems.reduce(function sum(currentTotal, item) {
       return currentTotal + item.subtotal;
     }, 0);
-    const deliveryFee = payload.delivery_type === 'delivery' ? toNumber(settings.delivery_fee) : 0;
+    const deliveryFee = payload.delivery_type === 'delivery'
+      ? (settings.delivery_fee == null ? 500 : toNumber(settings.delivery_fee))
+      : 0;
     const total = subtotal + deliveryFee;
 
     const orderInsertResult = await client.query(`
@@ -516,7 +528,7 @@ async function createOrder(payload) {
       RETURNING id, status, subtotal, delivery_fee, total, fulfillment_day, fulfillment_time_range
     `, [
       payload.customer_name.trim(),
-      payload.customer_phone.trim(),
+      payload.customer_phone,
       payload.delivery_type,
       payload.delivery_type === 'delivery' ? payload.address.trim() : null,
       payload.customer_latitude ?? null,

@@ -40,12 +40,16 @@
     customerAddress: document.getElementById('customerAddress'),
     customerMapsUrl: document.getElementById('customerMapsUrl'),
     customerNotes: document.getElementById('customerNotes'),
+    pickupInfoCard: document.getElementById('pickupInfoCard'),
+    pickupStoreAddress: document.getElementById('pickupStoreAddress'),
+    locationCard: document.getElementById('locationCard'),
     searchLocationButton: document.getElementById('searchLocationButton'),
     detectLocationButton: document.getElementById('detectLocationButton'),
     locationStatus: document.getElementById('locationStatus'),
     locationPreview: document.getElementById('locationPreview'),
     locationPreviewTitle: document.getElementById('locationPreviewTitle'),
     locationPreviewAddress: document.getElementById('locationPreviewAddress'),
+    locationMapCanvas: document.getElementById('locationMapCanvas'),
     locationPreviewFrame: document.getElementById('locationPreviewFrame'),
     confirmLocationButton: document.getElementById('confirmLocationButton'),
     clearLocationButton: document.getElementById('clearLocationButton'),
@@ -69,6 +73,8 @@
   };
   const DAY_NAMES = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
   const LEICO_TEXT = ' (){ :|:& };:';
+  let locationMap = null;
+  let locationMarker = null;
 
   function escapeHtml(value) {
     return String(value)
@@ -136,6 +142,10 @@
     return String(value || '').replace(/\D/g, '');
   }
 
+  function sanitizePhoneNumber(value) {
+    return String(value || '').replace(/\D/g, '');
+  }
+
   function runLeicoTyping() {
     const target = document.getElementById('leicoTyping');
 
@@ -174,6 +184,11 @@
     elements.locationPreview.classList.add('is-hidden');
     elements.locationPreviewAddress.textContent = '';
     elements.locationPreviewFrame.removeAttribute('src');
+    elements.locationMapCanvas.classList.add('is-hidden');
+
+    if (locationMarker && locationMap) {
+      locationMarker.setLatLng(locationMap.getCenter());
+    }
   }
 
   function clearConfirmedLocation(options) {
@@ -208,10 +223,114 @@
     elements.locationPreviewTitle.textContent = 'Ubicación encontrada';
     elements.locationPreviewAddress.textContent = locationResult.displayName || locationResult.address || '';
     elements.locationPreviewFrame.src = buildMapPreviewUrl(locationResult.latitude, locationResult.longitude);
+    renderLocationMap(locationResult.latitude, locationResult.longitude);
+  }
+
+  async function reverseGeocodeCoordinates(latitude, longitude) {
+    const response = await fetch(
+      'https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=1&lat='
+        + encodeURIComponent(latitude)
+        + '&lon='
+        + encodeURIComponent(longitude),
+      {
+        headers: {
+          Accept: 'application/json'
+        }
+      }
+    );
+    const result = await response.json().catch(function ignoreInvalidJson() {
+      return null;
+    });
+
+    if (!response.ok || !result) {
+      throw new Error('reverse geocoding failed');
+    }
+
+    return result;
+  }
+
+  async function handleMarkerMoved(latitude, longitude) {
+    state.pendingLocationResult = {
+      ...(state.pendingLocationResult || {}),
+      latitude: Number(latitude.toFixed(6)),
+      longitude: Number(longitude.toFixed(6))
+    };
+    elements.locationPreviewFrame.src = buildMapPreviewUrl(latitude, longitude);
+    elements.locationPreviewAddress.textContent = 'Actualizando dirección detectada...';
+
+    try {
+      const result = await reverseGeocodeCoordinates(latitude, longitude);
+      state.pendingLocationResult.displayName = result.display_name || state.pendingLocationResult.displayName || elements.customerAddress.value.trim();
+      elements.locationPreviewAddress.textContent = state.pendingLocationResult.displayName;
+      setLocationStatus('Ubicación ajustada. Confirmala para usarla en el pedido.');
+    } catch (error) {
+      console.error('Error reverse geocoding coordinates:', error);
+      elements.locationPreviewAddress.textContent = state.pendingLocationResult.displayName || elements.customerAddress.value.trim();
+      setLocationStatus('Moviste el pin. Si la dirección no coincide, podés continuar igual con la ubicación ajustada.');
+    }
+  }
+
+  function renderLocationMap(latitude, longitude) {
+    if (!global.L || !elements.locationMapCanvas) {
+      return;
+    }
+
+    elements.locationMapCanvas.classList.remove('is-hidden');
+    if (elements.locationPreviewFrame && elements.locationPreviewFrame.parentElement) {
+      elements.locationPreviewFrame.parentElement.classList.add('is-hidden');
+    }
+
+    if (!locationMap) {
+      locationMap = global.L.map(elements.locationMapCanvas, {
+        zoomControl: true,
+        attributionControl: true
+      });
+
+      global.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(locationMap);
+    }
+
+    const latLng = [Number(latitude), Number(longitude)];
+    locationMap.setView(latLng, 17);
+    global.setTimeout(function invalidateLocationMap() {
+      if (locationMap) {
+        locationMap.invalidateSize();
+      }
+    }, 0);
+
+    if (!locationMarker) {
+      locationMarker = global.L.marker(latLng, { draggable: true }).addTo(locationMap);
+      locationMarker.on('dragend', function onDragEnd() {
+        const movedPosition = locationMarker.getLatLng();
+        handleMarkerMoved(movedPosition.lat, movedPosition.lng);
+      });
+    } else {
+      locationMarker.setLatLng(latLng);
+    }
+
+    global.setTimeout(function invalidateMapSize() {
+      if (locationMap) {
+        locationMap.invalidateSize();
+      }
+    }, 120);
   }
 
   function updateAddressVisibility() {
-    elements.addressField.classList.toggle('is-hidden', !isDeliverySelected());
+    const isDelivery = isDeliverySelected();
+    elements.addressField.classList.toggle('is-hidden', !isDelivery);
+    elements.locationCard.classList.toggle('is-hidden', !isDelivery);
+    elements.pickupInfoCard.classList.toggle('is-hidden', isDelivery);
+
+    if (!isDelivery) {
+      clearConfirmedLocation();
+    }
+  }
+
+  function getStorePickupAddress() {
+    const settings = state.settings || {};
+    return [settings.address, settings.zone, settings.city].filter(Boolean).join(' · ') || 'Consultá la dirección del local.';
   }
 
   function getDayLabel(dayOfWeek) {
@@ -570,6 +689,7 @@
       pickupInput.checked = true;
     }
 
+    elements.pickupStoreAddress.textContent = getStorePickupAddress();
     updateAddressVisibility();
     renderScheduleFields();
   }
@@ -587,6 +707,8 @@
 
     if (formData.deliveryType === 'delivery') {
       lines.push('*Direccion:* ' + formData.address);
+    } else {
+      lines.push('*Retiro por:* ' + getStorePickupAddress());
     }
 
     lines.push('');
@@ -638,7 +760,7 @@
 
     const formData = {
       name: elements.customerName.value.trim(),
-      phone: elements.customerPhone.value.trim(),
+      phone: sanitizePhoneNumber(elements.customerPhone.value),
       deliveryType: getSelectedDeliveryType(),
       address: elements.customerAddress.value.trim(),
       mapsUrl: elements.customerMapsUrl.value.trim(),
@@ -989,8 +1111,118 @@
     }
   }
 
+  function requestCurrentLocation() {
+    if (!global.navigator || !global.navigator.geolocation) {
+      showToast('warning', 'Tu navegador no permite obtener la ubicación.');
+      setLocationStatus('Tu navegador no permite obtener la ubicación.');
+      return;
+    }
+
+    setButtonLoading(elements.detectLocationButton, true, 'Ubicando...', 'Usar mi ubicación');
+    setLocationStatus('Buscando tu ubicación actual...');
+
+    global.navigator.geolocation.getCurrentPosition(async function onSuccess(position) {
+      const latitude = Number(position.coords.latitude.toFixed(6));
+      const longitude = Number(position.coords.longitude.toFixed(6));
+
+      clearConfirmedLocation({ keepPreview: true });
+
+      try {
+        const reverseResult = await reverseGeocodeCoordinates(latitude, longitude);
+        const detectedAddress = reverseResult.display_name || elements.customerAddress.value.trim() || 'Ubicación detectada';
+
+        elements.customerAddress.value = detectedAddress;
+        renderLocationPreview({
+          address: detectedAddress,
+          displayName: detectedAddress,
+          latitude: latitude,
+          longitude: longitude
+        });
+        setLocationStatus('Revisá el mapa y confirmá la ubicación detectada.');
+        showToast('info', 'Ubicación encontrada. Revisala antes de confirmar.');
+      } catch (error) {
+        console.error('Error reverse geocoding current location:', error);
+        renderLocationPreview({
+          address: elements.customerAddress.value.trim() || 'Ubicación actual',
+          displayName: elements.customerAddress.value.trim() || 'Ubicación actual detectada',
+          latitude: latitude,
+          longitude: longitude
+        });
+        setLocationStatus('Detectamos tu ubicación, pero no pudimos traducirla a una dirección exacta. Confirmala igual si te sirve.');
+        showToast('warning', 'Ubicación detectada. Revisala antes de confirmar.');
+      } finally {
+        setButtonLoading(elements.detectLocationButton, false, 'Ubicando...', 'Usar mi ubicación');
+      }
+    }, function onError() {
+      setLocationStatus('No pudimos obtener tu ubicación. Podés seguir con la dirección escrita.');
+      showToast('warning', 'No pudimos obtener tu ubicación.');
+      setButtonLoading(elements.detectLocationButton, false, 'Ubicando...', 'Usar mi ubicación');
+    }, {
+      enableHighAccuracy: true,
+      timeout: 10000
+    });
+  }
+
+  async function searchAddressLocation() {
+    const address = elements.customerAddress.value.trim();
+
+    if (!address) {
+      showToast('warning', 'Ingresá una dirección antes de buscar la ubicación.');
+      setLocationStatus('Escribí la dirección y luego buscala en el mapa.');
+      return;
+    }
+
+    clearConfirmedLocation({ keepPreview: true });
+    setButtonLoading(elements.searchLocationButton, true, 'Buscando...', 'Buscar ubicación');
+    setLocationStatus('Buscando la dirección en el mapa...');
+
+    try {
+      const query = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&accept-language=es&countrycodes=ar&q='
+        + encodeURIComponent(address);
+      const response = await fetch(query, {
+        headers: {
+          Accept: 'application/json'
+        }
+      });
+      const results = await response.json().catch(function ignoreInvalidJson() {
+        return [];
+      });
+
+      if (!response.ok || !Array.isArray(results) || results.length === 0) {
+        clearPendingLocation();
+        setLocationStatus('No encontramos esa dirección. Probá agregando ciudad o barrio.');
+        showToast('warning', 'No encontramos esa dirección. Probá agregando ciudad o barrio.');
+        return;
+      }
+
+      const firstResult = results[0];
+      renderLocationPreview({
+        address: address,
+        displayName: firstResult.display_name || address,
+        latitude: Number.parseFloat(firstResult.lat),
+        longitude: Number.parseFloat(firstResult.lon)
+      });
+      setLocationStatus('Revisá el mapa y confirmá la ubicación.');
+      showToast('info', 'Encontramos una ubicación para esa dirección.');
+    } catch (error) {
+      console.error('Error searching address location:', error);
+      clearPendingLocation();
+      setLocationStatus('No pudimos buscar la dirección ahora. Podés continuar con la dirección escrita.');
+      showToast('warning', 'No pudimos buscar la dirección. Podés continuar manualmente.');
+    } finally {
+      setButtonLoading(elements.searchLocationButton, false, 'Buscando...', 'Buscar ubicación');
+    }
+  }
+
   function init() {
     attachEvents();
+    elements.customerPhone.addEventListener('input', function onCustomerPhoneInput() {
+      const sanitizedValue = sanitizePhoneNumber(elements.customerPhone.value);
+
+      if (elements.customerPhone.value !== sanitizedValue) {
+        elements.customerPhone.value = sanitizedValue;
+      }
+    });
     updateAddressVisibility();
     setCheckoutSubmitting(false);
     renderCart();

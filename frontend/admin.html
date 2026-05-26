@@ -154,7 +154,7 @@
                   </label>
                   <label class="field">
                     <span>Telefono del cliente</span>
-                    <input id="manualOrderCustomerPhone" type="text" required />
+                    <input id="manualOrderCustomerPhone" type="tel" inputmode="numeric" pattern="[0-9]*" required />
                   </label>
                 </div>
 
@@ -258,8 +258,9 @@
 
                 <div class="two-columns">
                   <label class="field">
-                    <span>Categoria</span>
+                    <span>Categoría comercial (opcional)</span>
                     <select id="productCategoryId"></select>
+                    <small class="field-help">Usala para agrupar productos como Empanadas, Promos o Bebidas. Las variantes como Caliente o Congelada van en Opciones.</small>
                   </label>
                   <label class="field">
                     <span>Nombre</span>
@@ -671,6 +672,19 @@
           <span>Systems · Automation · Ops</span>
         </div>
       </footer>
+
+      <div class="confirm-dialog is-hidden" id="confirmDialog" aria-hidden="true">
+        <div class="confirm-dialog__backdrop" id="confirmDialogBackdrop"></div>
+        <div class="confirm-dialog__card" role="dialog" aria-modal="true" aria-labelledby="confirmDialogTitle">
+          <p class="eyebrow">Confirmación</p>
+          <h3 id="confirmDialogTitle">Confirmar acción</h3>
+          <p class="muted" id="confirmDialogMessage">¿Querés continuar?</p>
+          <div class="form-actions">
+            <button class="primary-button" id="confirmDialogConfirm" type="button">Eliminar</button>
+            <button class="ghost-button" id="confirmDialogCancel" type="button">Cancelar</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script src="./js/components/toast.js" defer></script>
