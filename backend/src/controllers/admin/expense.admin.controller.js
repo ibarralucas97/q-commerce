@@ -28,7 +28,11 @@ function validateExpensePayload(payload) {
 
 async function getExpenses(req, res) {
   try {
-    const expenses = await expenseAdminService.getExpenses();
+    const closureId = req.query && req.query.closure_id ? Number.parseInt(req.query.closure_id, 10) : null;
+    const expenses = await expenseAdminService.getExpenses({
+      scope: req.query && req.query.scope === 'all' ? 'all' : 'active',
+      closure_id: Number.isNaN(closureId) ? null : closureId
+    });
 
     return res.json(expenses);
   } catch (error) {

@@ -33,6 +33,9 @@ body {
   max-width: 100%;
   overflow-x: hidden;
   margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   font-family: "Manrope", sans-serif;
   background:
     radial-gradient(circle at top, rgba(181, 82, 44, 0.28), transparent 32%),
@@ -70,6 +73,9 @@ button {
   width: 100%;
   max-width: 100%;
   min-height: 100vh;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
 }
 
@@ -188,6 +194,7 @@ button {
   display: grid;
   gap: 1rem;
   min-width: 0;
+  flex: 1;
 }
 
 .catalog-panel,
@@ -211,6 +218,15 @@ button {
   justify-content: space-between;
   gap: 1rem;
   min-width: 0;
+}
+
+.section-heading--compact {
+  align-items: flex-start;
+}
+
+.section-heading--compact h3 {
+  margin: 0;
+  font-size: 1rem;
 }
 
 .section-heading h2,
@@ -499,6 +515,15 @@ button {
   display: grid;
   gap: 0.9rem;
   margin-top: 1rem;
+}
+
+.location-card {
+  display: grid;
+  gap: 0.85rem;
+  padding: 0.95rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .field {
@@ -831,4 +856,134 @@ body.cart-open {
     left: auto;
     width: min(26rem, calc(100vw - 2rem));
   }
+}
+
+.leico-footer {
+  margin: 1rem auto calc(1rem + env(safe-area-inset-bottom, 0px));
+  width: min(calc(100% - 2rem), var(--container));
+  padding: 14px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  background: linear-gradient(135deg, rgba(2, 6, 23, 0.92), rgba(15, 23, 42, 0.92));
+  border: 1px solid rgba(34, 197, 94, 0.16);
+  border-radius: 18px;
+  box-shadow: 0 0 28px rgba(34, 197, 94, 0.045), inset 0 0 18px rgba(34, 197, 94, 0.035);
+  color: #94a3b8;
+}
+
+.leico-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.leico-mark {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 20px;
+  font-weight: 900;
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.22);
+  border-radius: 14px;
+  text-shadow: 0 0 12px rgba(34, 197, 94, 0.45);
+}
+
+.leico-terminal {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+  letter-spacing: 0.2px;
+  color: #86efac;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 0 8px rgba(34, 197, 94, 0.25);
+}
+
+.leico-prompt {
+  color: #4ade80;
+  font-weight: 700;
+}
+
+.leico-path {
+  color: #64748b;
+}
+
+#leicoTyping {
+  color: #cbd5e1;
+}
+
+.leico-cursor {
+  margin-left: 3px;
+  color: #22c55e;
+  animation: leicoBlink 1s infinite;
+}
+
+.leico-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 9px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2.8px;
+  color: #64748b;
+}
+
+.leico-meta span:first-child {
+  color: #e2e8f0;
+  font-weight: 900;
+  letter-spacing: 8px;
+}
+
+@keyframes leicoBlink {
+  0%, 50% {
+    opacity: 1;
+  }
+
+  51%, 100% {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .leico-footer {
+    align-items: flex-start;
+  }
+
+  .leico-brand {
+    width: 100%;
+  }
+
+  .leico-meta {
+    align-items: flex-start;
+  }
+
+  .leico-terminal {
+    white-space: normal;
+  }
+}
+
+.option-group-field select {
+  min-height: 48px;
+}
+
+.cart-line__detail-list {
+  display: grid;
+  gap: 0.2rem;
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.cart-line__detail-list span {
+  display: block;
 }

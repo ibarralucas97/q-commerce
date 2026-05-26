@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS products (
   price NUMERIC(10,2) NOT NULL CHECK (price >= 0),
   image_url TEXT,
   stock INTEGER CHECK (stock IS NULL OR stock >= 0),
+  option_group_count INTEGER NOT NULL DEFAULT 1 CHECK (option_group_count >= 1),
+  option_group_label VARCHAR(40),
   is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP NOT NULL DEFAULT NOW()
@@ -58,6 +60,10 @@ CREATE TABLE IF NOT EXISTS orders (
   customer_phone VARCHAR(30) NOT NULL,
   delivery_type VARCHAR(20) NOT NULL CHECK (delivery_type IN ('delivery', 'pickup')),
   address TEXT,
+  customer_latitude NUMERIC(9,6),
+  customer_longitude NUMERIC(9,6),
+  maps_url TEXT,
+  closure_id INTEGER,
   fulfillment_day VARCHAR(30),
   fulfillment_time_range VARCHAR(50),
   notes TEXT,
@@ -76,6 +82,8 @@ CREATE TABLE IF NOT EXISTS order_items (
   product_option_id INTEGER,
   product_name VARCHAR(160) NOT NULL,
   product_option_name VARCHAR(120),
+  selection_summary TEXT,
+  selection_detail JSONB,
   quantity INTEGER NOT NULL CHECK (quantity > 0),
   unit_price NUMERIC(10,2) NOT NULL CHECK (unit_price >= 0),
   subtotal NUMERIC(10,2) NOT NULL CHECK (subtotal >= 0),
@@ -113,6 +121,23 @@ CREATE TABLE IF NOT EXISTS expenses (
   description TEXT,
   amount NUMERIC(10,2) NOT NULL CHECK (amount >= 0),
   expense_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  closure_id INTEGER,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS order_closures (
+  id SERIAL PRIMARY KEY,
+  closure_code VARCHAR(60) NOT NULL UNIQUE,
+  notes TEXT,
+  total_orders INTEGER NOT NULL DEFAULT 0,
+  valid_orders INTEGER NOT NULL DEFAULT 0,
+  cancelled_orders INTEGER NOT NULL DEFAULT 0,
+  total_sales NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+  total_expenses NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+  net_profit NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+  products_summary JSONB NOT NULL DEFAULT '[]'::jsonb,
+  closed_at TIMESTAMP NOT NULL DEFAULT NOW(),
   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );

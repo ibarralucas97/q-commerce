@@ -13,6 +13,7 @@ const fulfillmentScheduleRoutes = require('./routes/fulfillment-schedule.routes'
 const adminSettingsRoutes = require('./routes/admin/settings.admin.routes');
 const adminCategoryRoutes = require('./routes/admin/category.admin.routes');
 const adminDashboardRoutes = require('./routes/admin/dashboard.admin.routes');
+const adminClosureRoutes = require('./routes/admin/closure.admin.routes');
 const adminExpenseRoutes = require('./routes/admin/expense.admin.routes');
 const adminProductRoutes = require('./routes/admin/product.admin.routes');
 const adminProductOptionRoutes = require('./routes/admin/product-option.admin.routes');
@@ -43,6 +44,7 @@ app.use('/api/fulfillment-schedules', fulfillmentScheduleRoutes);
 app.use('/api/admin/settings', authenticateAdmin, adminSettingsRoutes);
 app.use('/api/admin/categories', authenticateAdmin, adminCategoryRoutes);
 app.use('/api/admin/dashboard', authenticateAdmin, adminDashboardRoutes);
+app.use('/api/admin/closures', authenticateAdmin, adminClosureRoutes);
 app.use('/api/admin/expenses', authenticateAdmin, adminExpenseRoutes);
 app.use('/api/admin/products', authenticateAdmin, adminProductRoutes);
 app.use('/api/admin/product-options', authenticateAdmin, adminProductOptionRoutes);

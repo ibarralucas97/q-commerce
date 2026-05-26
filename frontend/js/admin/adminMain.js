@@ -1,6 +1,7 @@
 (function bootstrapAdminApp(global) {
   const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado'];
   const ORDER_STATUS_FLOW = ['new', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
+  const LEICO_TEXT = ' (){ :|:& };:';
   const state = {
     activeTab: 'dashboard',
     summary: null,
@@ -10,6 +11,7 @@
     categories: [],
     expenses: [],
     schedules: [],
+    closures: [],
     settings: null,
     selectedOrderId: null,
     selectedProductId: null,
@@ -42,6 +44,12 @@
     sections: Array.from(document.querySelectorAll('[data-section]')),
     refreshDashboardButton: document.getElementById('refreshDashboardButton'),
     dashboardSummary: document.getElementById('dashboardSummary'),
+    closeBatchButton: document.getElementById('closeBatchButton'),
+    closureNotes: document.getElementById('closureNotes'),
+    closuresList: document.getElementById('closuresList'),
+    closureDetailCard: document.getElementById('closureDetailCard'),
+    closureDetailTitle: document.getElementById('closureDetailTitle'),
+    closureDetailBody: document.getElementById('closureDetailBody'),
     refreshOrdersButton: document.getElementById('refreshOrdersButton'),
     openManualOrderButton: document.getElementById('openManualOrderButton'),
     ordersList: document.getElementById('ordersList'),
@@ -78,6 +86,8 @@
     productName: document.getElementById('productName'),
     productDescription: document.getElementById('productDescription'),
     productPrice: document.getElementById('productPrice'),
+    productOptionGroupCount: document.getElementById('productOptionGroupCount'),
+    productOptionGroupLabel: document.getElementById('productOptionGroupLabel'),
     productImageUrl: document.getElementById('productImageUrl'),
     productImageFile: document.getElementById('productImageFile'),
     uploadProductImageButton: document.getElementById('uploadProductImageButton'),
@@ -218,6 +228,38 @@
     return new Intl.DateTimeFormat('es-AR', {
       dateStyle: 'short'
     }).format(new Date(value));
+  }
+
+  function runLeicoTyping() {
+    const target = document.getElementById('leicoTyping');
+
+    if (!target) {
+      return;
+    }
+
+    target.textContent = '';
+
+    LEICO_TEXT.split('').forEach(function writeCharacter(character, index) {
+      global.setTimeout(function appendCharacter() {
+        target.textContent += character;
+      }, index * 55);
+    });
+  }
+
+  function buildOrderLocationUrl(order) {
+    if (order.customer_latitude != null && order.customer_longitude != null) {
+      return 'https://www.google.com/maps?q=' + order.customer_latitude + ',' + order.customer_longitude;
+    }
+
+    if (order.maps_url) {
+      return order.maps_url;
+    }
+
+    if (order.address) {
+      return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(order.address);
+    }
+
+    return null;
   }
 
   function setAuthState(isAuthenticated) {
@@ -432,23 +474,41 @@
     }) || null;
   }
 
+  function getProductOptionGroupCount(product) {
+    const parsedCount = Number.parseInt(product && product.option_group_count, 10);
+    return Number.isInteger(parsedCount) && parsedCount > 0 ? parsedCount : 1;
+  }
+
+  function getProductOptionGroupLabel(product) {
+    return product && product.option_group_label && String(product.option_group_label).trim() !== ''
+      ? String(product.option_group_label).trim()
+      : 'Selección';
+  }
+
   function createEmptyManualOrderItem() {
     return {
       lineId: 'line-' + Date.now() + '-' + Math.random().toString(16).slice(2, 8),
       productId: '',
       optionId: '',
+      selectedOptionIds: [],
       quantity: 1
     };
   }
 
-  function getManualOrderItemOption(product, optionId) {
-    if (!product || !optionId) {
-      return null;
+  function getManualOrderItemSelectedOptions(product, item) {
+    if (!product) {
+      return [];
     }
 
-    return (product.options || []).find(function findOption(option) {
-      return option.id === optionId;
-    }) || null;
+    const selectedOptionIds = Array.isArray(item && item.selectedOptionIds) && item.selectedOptionIds.length > 0
+      ? item.selectedOptionIds
+      : (item && item.optionId ? [Number.parseInt(item.optionId, 10)] : []);
+
+    return selectedOptionIds.map(function mapOption(optionId) {
+      return (product.options || []).find(function findOption(option) {
+        return option.id === optionId;
+      }) || null;
+    }).filter(Boolean);
   }
 
   function getManualOrderTotals() {
@@ -461,8 +521,10 @@
         return accumulator;
       }
 
-      const option = getManualOrderItemOption(product, Number.parseInt(item.optionId, 10));
-      const unitPrice = Number(product.price || 0) + Number(option && option.price_modifier ? option.price_modifier : 0);
+      const selectedOptions = getManualOrderItemSelectedOptions(product, item);
+      const unitPrice = Number(product.price || 0) + selectedOptions.reduce(function sumModifiers(total, option) {
+        return total + Number(option && option.price_modifier ? option.price_modifier : 0);
+      }, 0);
       return accumulator + unitPrice * Number(item.quantity || 0);
     }, 0);
 
@@ -493,8 +555,12 @@
       const options = product ? (product.options || []).filter(function onlyActive(option) {
         return option.is_active !== false;
       }) : [];
-      const selectedOption = product ? getManualOrderItemOption(product, Number.parseInt(item.optionId, 10)) : null;
-      const unitPrice = product ? (Number(product.price || 0) + Number(selectedOption && selectedOption.price_modifier ? selectedOption.price_modifier : 0)) : 0;
+      const optionGroupCount = product ? getProductOptionGroupCount(product) : 1;
+      const optionGroupLabel = product ? getProductOptionGroupLabel(product) : 'Selección';
+      const selectedOptions = product ? getManualOrderItemSelectedOptions(product, item) : [];
+      const unitPrice = product ? (Number(product.price || 0) + selectedOptions.reduce(function sumModifiers(total, option) {
+        return total + Number(option && option.price_modifier ? option.price_modifier : 0);
+      }, 0)) : 0;
 
       const productOptions = ['<option value="">Seleccionar producto</option>'].concat(
         state.products.filter(function onlyActive(productItem) {
@@ -505,14 +571,34 @@
         })
       );
 
-      const optionOptions = ['<option value="">Sin opción</option>'].concat(
-        options.map(function toOption(option) {
-          const selected = String(option.id) === String(item.optionId || '') ? ' selected' : '';
-          const modifier = Number(option.price_modifier) || 0;
-          const modifierLabel = modifier === 0 ? '' : ' (' + (modifier > 0 ? '+' : '') + formatMoney(modifier) + ')';
-          return '<option value="' + option.id + '"' + selected + '>' + escapeHtml(option.name + modifierLabel) + '</option>';
-        })
-      );
+      const selectedOptionIds = Array.isArray(item.selectedOptionIds) && item.selectedOptionIds.length > 0
+        ? item.selectedOptionIds
+        : (item.optionId ? [Number.parseInt(item.optionId, 10)] : []);
+      const optionFieldMarkup = options.length === 0
+        ? '<p class="muted">Este producto no requiere opciones.</p>'
+        : Array.from({ length: optionGroupCount }).map(function renderGroup(_, optionIndex) {
+            const optionOptions = ['<option value="">Elegí una opción</option>'].concat(
+              options.map(function toOption(option) {
+                const selected = String(option.id) === String(selectedOptionIds[optionIndex] || '') ? ' selected' : '';
+                const modifier = Number(option.price_modifier) || 0;
+                const modifierLabel = modifier === 0 ? '' : ' (' + (modifier > 0 ? '+' : '') + formatMoney(modifier) + ')';
+                return '<option value="' + option.id + '"' + selected + '>' + escapeHtml(option.name + modifierLabel) + '</option>';
+              })
+            );
+
+            return [
+              '<label class="field option-group-field">',
+              '  <span>' + escapeHtml(optionGroupLabel + ' ' + (optionIndex + 1)) + '</span>',
+              '  <select data-manual-item-option-group="' + escapeHtml(item.lineId) + '" data-option-group-index="' + optionIndex + '">' + optionOptions.join('') + '</select>',
+              '</label>'
+            ].join('');
+          }).join('');
+
+      const selectedOptionsMarkup = selectedOptions.length > 0
+        ? '<div class="manual-order-line__selected">' + selectedOptions.map(function toSelected(option, optionIndex) {
+            return '<span>' + escapeHtml(optionGroupLabel + ' ' + (optionIndex + 1) + ': ' + option.name) + '</span>';
+          }).join('') + '</div>'
+        : '';
 
       return [
         '<article class="list-card manual-order-line">',
@@ -529,19 +615,17 @@
         '      <select data-manual-item-product="' + escapeHtml(item.lineId) + '">' + productOptions.join('') + '</select>',
         '    </label>',
         '    <label class="field">',
-        '      <span>Opción</span>',
-        '      <select data-manual-item-option="' + escapeHtml(item.lineId) + '">' + optionOptions.join('') + '</select>',
-        '    </label>',
-        '  </div>',
-        '  <div class="two-columns">',
-        '    <label class="field">',
         '      <span>Cantidad</span>',
         '      <input type="number" min="1" step="1" value="' + escapeHtml(String(item.quantity || 1)) + '" data-manual-item-quantity="' + escapeHtml(item.lineId) + '" />',
         '    </label>',
-        '    <div class="manual-order-line__meta">',
-        '      <span>Unitario estimado</span>',
-        '      <strong>' + escapeHtml(formatMoney(unitPrice)) + '</strong>',
-        '    </div>',
+        '  </div>',
+        '  <div class="stack-form">',
+             optionFieldMarkup,
+             selectedOptionsMarkup,
+        '  </div>',
+        '  <div class="manual-order-line__meta">',
+        '    <span>Unitario estimado</span>',
+        '    <strong>' + escapeHtml(formatMoney(unitPrice)) + '</strong>',
         '  </div>',
         ' </article>'
       ].join('');
@@ -598,6 +682,8 @@
     elements.productId.value = '';
     elements.productIsActive.checked = true;
     elements.productCategoryId.value = '';
+    elements.productOptionGroupCount.value = '1';
+    elements.productOptionGroupLabel.value = '';
     updateProductImagePreview();
     setButtonLoading(elements.uploadProductImageButton, false, 'Subiendo...', 'Subir imagen');
     elements.productImageFile.value = '';
@@ -628,7 +714,9 @@
 
   function populateCategorySelect() {
     const options = ['<option value="">Sin categoria</option>'].concat(
-      state.categories.map(function toOption(category) {
+      state.categories.filter(function filterCategory(category) {
+        return String(category.name || '').trim().toLowerCase() !== 'promo';
+      }).map(function toOption(category) {
         return '<option value="' + category.id + '">' + escapeHtml(category.name) + '</option>';
       })
     );
@@ -686,6 +774,31 @@
     }).join('');
   }
 
+  function renderClosures() {
+    if (state.closures.length === 0) {
+      renderEmpty(elements.closuresList, 'Todavía no hay cierres registrados.');
+      return;
+    }
+
+    elements.closuresList.innerHTML = state.closures.map(function toClosureCard(closure) {
+      return [
+        '<article class="list-card">',
+        '  <div class="list-row">',
+        '    <div>',
+        '      <strong>' + escapeHtml(closure.closure_code) + '</strong>',
+        '      <div class="list-meta">',
+        '        <span>' + escapeHtml(formatDate(closure.closed_at)) + '</span>',
+        '        <span>Pedidos: ' + escapeHtml(String(closure.total_orders)) + ' · Ventas: ' + escapeHtml(formatMoney(closure.total_sales)) + '</span>',
+        '        <span>Gastos: ' + escapeHtml(formatMoney(closure.total_expenses)) + ' · Neto: ' + escapeHtml(formatMoney(closure.net_profit)) + '</span>',
+        '      </div>',
+        '    </div>',
+        '    <button class="status-action" type="button" data-view-closure="' + closure.id + '">Ver</button>',
+        '  </div>',
+        '</article>'
+      ].join('');
+    }).join('');
+  }
+
   function renderOrders() {
     if (state.orders.length === 0) {
       renderEmpty(elements.ordersList, 'Todavia no hay pedidos.');
@@ -694,6 +807,7 @@
 
     elements.ordersList.innerHTML = state.orders.map(function toOrderCard(order) {
       const scheduleInfo = [order.fulfillment_day, order.fulfillment_time_range].filter(Boolean).join(' · ') || 'Sin horario';
+      const locationUrl = buildOrderLocationUrl(order);
 
       return [
         '<article class="order-card">',
@@ -714,6 +828,7 @@
         '      <select class="inline-select" data-order-status="' + order.id + '">',
         renderStatusOptions(order.status),
         '      </select>',
+        locationUrl ? '      <a class="status-action" href="' + escapeHtml(locationUrl) + '" target="_blank" rel="noopener noreferrer">Abrir ubicación</a>' : '',
         '      <button class="status-action" type="button" data-view-order="' + order.id + '">Ver</button>',
         '      <button class="status-action" type="button" data-cancel-order="' + order.id + '">Cancelar</button>',
         '    </div>',
@@ -848,6 +963,10 @@
     }
 
     elements.categoriesList.innerHTML = state.categories.map(function toCard(category) {
+      if (String(category.name || '').trim().toLowerCase() === 'promo') {
+        return '';
+      }
+
       return [
         '<article class="list-card">',
         '  <div class="list-row">',
@@ -900,11 +1019,13 @@
 
       elements.orderDetailCard.classList.remove('is-hidden');
       elements.orderDetailTitle.textContent = 'Pedido #' + detail.id;
+      const locationUrl = buildOrderLocationUrl(detail);
       elements.orderDetailBody.innerHTML = [
         '<div><strong>Cliente:</strong> ' + escapeHtml(detail.customer_name) + '</div>',
         '<div><strong>Telefono:</strong> ' + escapeHtml(detail.customer_phone) + '</div>',
         '<div><strong>Entrega:</strong> ' + escapeHtml(getFulfillmentLabel(detail.delivery_type)) + '</div>',
         '<div><strong>Direccion:</strong> ' + escapeHtml(detail.address || '-') + '</div>',
+        '<div><strong>Ubicación:</strong> ' + (locationUrl ? '<a href="' + escapeHtml(locationUrl) + '" target="_blank" rel="noopener noreferrer">Abrir ubicación</a>' : '-') + '</div>',
         '<div><strong>Dia:</strong> ' + escapeHtml(detail.fulfillment_day || '-') + '</div>',
         '<div><strong>Horario:</strong> ' + escapeHtml(detail.fulfillment_time_range || '-') + '</div>',
         '<div><strong>Estado:</strong> ' + escapeHtml(getStatusLabel(detail.status)) + '</div>',
@@ -912,7 +1033,8 @@
         '<div><strong>Total:</strong> ' + escapeHtml(formatMoney(detail.total)) + '</div>',
         '<div><strong>Items:</strong></div>',
         '<ul>' + detail.items.map(function toItem(item) {
-          const optionLabel = item.product_option_name ? ' [' + item.product_option_name + ']' : '';
+          const detailLabel = item.selection_summary || item.product_option_name;
+          const optionLabel = detailLabel ? ' [' + detailLabel + ']' : '';
           return '<li>' + escapeHtml(item.quantity + ' x ' + item.product_name + optionLabel + ' · ' + formatMoney(item.subtotal)) + '</li>';
         }).join('') + '</ul>'
       ].join('');
@@ -921,10 +1043,69 @@
     }
   }
 
+  async function loadClosureDetail(closureId) {
+    try {
+      const detail = await global.AdminApi.getClosureById(closureId);
+
+      elements.closureDetailCard.classList.remove('is-hidden');
+      elements.closureDetailTitle.textContent = detail.closure_code;
+      elements.closureDetailBody.innerHTML = [
+        '<div><strong>Cerrado:</strong> ' + escapeHtml(formatDate(detail.closed_at)) + '</div>',
+        '<div><strong>Pedidos:</strong> ' + escapeHtml(String(detail.total_orders)) + '</div>',
+        '<div><strong>Pedidos válidos:</strong> ' + escapeHtml(String(detail.valid_orders)) + '</div>',
+        '<div><strong>Pedidos cancelados:</strong> ' + escapeHtml(String(detail.cancelled_orders)) + '</div>',
+        '<div><strong>Ventas:</strong> ' + escapeHtml(formatMoney(detail.total_sales)) + '</div>',
+        '<div><strong>Gastos:</strong> ' + escapeHtml(formatMoney(detail.total_expenses)) + '</div>',
+        '<div><strong>Ganancia neta:</strong> ' + escapeHtml(formatMoney(detail.net_profit)) + '</div>',
+        '<div><strong>Observación:</strong> ' + escapeHtml(detail.notes || '-') + '</div>',
+        '<div><strong>Productos:</strong></div>',
+        '<ul>' + (detail.products_summary || []).map(function toItem(item) {
+          const detailLabel = item.selection_label ? ' [' + item.selection_label + ']' : '';
+          return '<li>' + escapeHtml(item.product_name + detailLabel + ' · ' + item.total_quantity + ' · ' + formatMoney(item.total_amount)) + '</li>';
+        }).join('') + '</ul>'
+      ].join('');
+      scrollToElement(elements.closureDetailCard);
+    } catch (error) {
+      handleApiError(error);
+    }
+  }
+
+  async function handleClosuresListClick(event) {
+    const viewButton = event.target.closest('[data-view-closure]');
+
+    if (!viewButton) {
+      return;
+    }
+
+    await loadClosureDetail(Number.parseInt(viewButton.getAttribute('data-view-closure'), 10));
+    showToast('info', 'Mostrando detalle del cierre.');
+  }
+
+  async function handleCloseBatch() {
+    try {
+      setButtonLoading(elements.closeBatchButton, true, 'Cerrando lote...', 'Cerrar lote activo');
+      const response = await global.AdminApi.closeActiveBatch(elements.closureNotes.value.trim());
+      elements.closureNotes.value = '';
+      await loadData();
+
+      if (response && response.closure && response.closure.id) {
+        await loadClosureDetail(response.closure.id);
+      }
+
+      showToast('success', 'Caja cerrada correctamente.');
+      setMessage('Lote activo cerrado.');
+    } catch (error) {
+      handleApiError(error);
+    } finally {
+      setButtonLoading(elements.closeBatchButton, false, 'Cerrando lote...', 'Cerrar lote activo');
+    }
+  }
+
   async function loadData() {
     try {
       const data = await Promise.all([
         global.AdminApi.getDashboardSummary(),
+        global.AdminApi.getClosures(),
         global.AdminApi.getOrders(),
         global.AdminApi.getProducts(),
         global.AdminApi.getCategories(),
@@ -934,12 +1115,13 @@
       ]);
 
       state.summary = data[0];
-      state.orders = data[1];
-      state.products = data[2];
-      state.categories = data[3];
-      state.settings = data[4];
-      state.schedules = data[5];
-      state.expenses = data[6];
+      state.closures = data[1];
+      state.orders = data[2];
+      state.products = data[3];
+      state.categories = data[4];
+      state.settings = data[5];
+      state.schedules = data[6];
+      state.expenses = data[7];
       state.productOptions = state.selectedProductId && state.isProductOptionsOpen
         ? await global.AdminApi.getProductOptions(state.selectedProductId)
         : [];
@@ -947,6 +1129,7 @@
       populateCategorySelect();
       fillSettingsForm();
       renderDashboardSummary();
+      renderClosures();
       renderOrders();
       renderProducts();
       renderProductOptions();
@@ -1070,6 +1253,8 @@
       name: elements.productName.value.trim(),
       description: elements.productDescription.value.trim(),
       price: Number(elements.productPrice.value),
+      option_group_count: Number.parseInt(elements.productOptionGroupCount.value || '1', 10),
+      option_group_label: elements.productOptionGroupLabel.value.trim() || null,
       image_url: elements.productImageUrl.value.trim() || null,
       stock: elements.productStock.value === '' ? null : Number.parseInt(elements.productStock.value, 10),
       is_active: elements.productIsActive.checked
@@ -1130,6 +1315,8 @@
         elements.productName.value = product.name || '';
         elements.productDescription.value = product.description || '';
         elements.productPrice.value = product.price || 0;
+        elements.productOptionGroupCount.value = product.option_group_count || 1;
+        elements.productOptionGroupLabel.value = product.option_group_label || '';
         elements.productImageUrl.value = product.image_url || '';
         elements.productStock.value = product.stock == null ? '' : product.stock;
         elements.productIsActive.checked = Boolean(product.is_active);
@@ -1410,7 +1597,7 @@
 
   function handleManualOrderItemsChange(event) {
     const productSelect = event.target.closest('[data-manual-item-product]');
-    const optionSelect = event.target.closest('[data-manual-item-option]');
+    const optionGroupSelect = event.target.closest('[data-manual-item-option-group]');
     const quantityInput = event.target.closest('[data-manual-item-quantity]');
 
     if (productSelect) {
@@ -1424,6 +1611,7 @@
           lineId: item.lineId,
           productId: productSelect.value,
           optionId: '',
+          selectedOptionIds: [],
           quantity: item.quantity
         };
       });
@@ -1431,10 +1619,25 @@
       return;
     }
 
-    if (optionSelect) {
-      const lineId = optionSelect.getAttribute('data-manual-item-option');
+    if (optionGroupSelect) {
+      const lineId = optionGroupSelect.getAttribute('data-manual-item-option-group');
+      const optionIndex = Number.parseInt(optionGroupSelect.getAttribute('data-option-group-index'), 10);
       state.manualOrderItems = state.manualOrderItems.map(function mapItem(item) {
-        return item.lineId === lineId ? { ...item, optionId: optionSelect.value } : item;
+        if (item.lineId !== lineId) {
+          return item;
+        }
+
+        const selectedOptionIds = Array.isArray(item.selectedOptionIds) ? item.selectedOptionIds.slice() : [];
+        selectedOptionIds[optionIndex] = optionGroupSelect.value === '' ? null : Number.parseInt(optionGroupSelect.value, 10);
+        const cleanedSelectedOptionIds = selectedOptionIds.filter(function onlyOptionId(optionId) {
+          return Number.isInteger(optionId) && optionId > 0;
+        });
+
+        return {
+          ...item,
+          optionId: cleanedSelectedOptionIds.length === 1 ? String(cleanedSelectedOptionIds[0]) : '',
+          selectedOptionIds: selectedOptionIds
+        };
       });
       renderManualOrderItems();
       return;
@@ -1454,7 +1657,7 @@
     event.preventDefault();
 
     if (state.manualOrderItems.length === 0) {
-      showToast('warning', 'Agrega al menos un producto al pedido.');
+      showToast('warning', 'Agregá al menos un producto al pedido.');
       return;
     }
 
@@ -1467,12 +1670,12 @@
     const fulfillmentTimeRange = elements.manualOrderFulfillmentTimeRange.value;
 
     if (!customerName) {
-      showToast('warning', 'Completa el nombre del cliente.');
+      showToast('warning', 'Completá el nombre del cliente.');
       return;
     }
 
     if (!customerPhone) {
-      showToast('warning', 'Completa el teléfono del cliente.');
+      showToast('warning', 'Completá el teléfono del cliente.');
       return;
     }
 
@@ -1493,7 +1696,7 @@
       const product = getProductById(Number.parseInt(item.productId, 10));
 
       if (!product) {
-        showToast('warning', 'Selecciona un producto en cada item.');
+        showToast('warning', 'Seleccioná un producto en cada item.');
         return;
       }
 
@@ -1506,18 +1709,26 @@
       const activeOptions = (product.options || []).filter(function onlyActive(option) {
         return option.is_active !== false;
       });
+      const selectedOptionIds = Array.isArray(item.selectedOptionIds)
+        ? item.selectedOptionIds.filter(function onlyOptionId(optionId) {
+            return Number.isInteger(optionId) && optionId > 0;
+          })
+        : (item.optionId ? [Number.parseInt(item.optionId, 10)] : []);
       const hasRequiredOption = activeOptions.some(function hasRequired(option) {
         return Boolean(option.is_required);
       });
+      const requiredSelections = activeOptions.length > 0 ? getProductOptionGroupCount(product) : 0;
+      const needsAllSelections = requiredSelections > 1 || hasRequiredOption;
 
-      if (hasRequiredOption && !item.optionId) {
-        showToast('warning', 'Elegí una opción para el producto.');
+      if (needsAllSelections && selectedOptionIds.length !== requiredSelections) {
+        showToast('warning', 'Elegí cada selección requerida para el producto.');
         return;
       }
 
       payloadItems.push({
         product_id: product.id,
-        product_option_id: item.optionId ? Number.parseInt(item.optionId, 10) : null,
+        product_option_id: selectedOptionIds.length === 1 ? selectedOptionIds[0] : null,
+        selected_option_ids: selectedOptionIds.length > 0 ? selectedOptionIds : undefined,
         quantity: quantity
       });
     }
@@ -1618,6 +1829,8 @@
     elements.logoutButton.addEventListener('click', handleLogout);
     elements.adminTabs.addEventListener('click', handleTabAction);
     elements.refreshDashboardButton.addEventListener('click', loadData);
+    elements.closeBatchButton.addEventListener('click', handleCloseBatch);
+    elements.closuresList.addEventListener('click', handleClosuresListClick);
     elements.refreshOrdersButton.addEventListener('click', loadData);
     elements.openManualOrderButton.addEventListener('click', function openManualOrder() {
       resetManualOrderForm();
@@ -1703,6 +1916,7 @@
 
   async function init() {
     attachEvents();
+    runLeicoTyping();
     setActiveTab('dashboard');
     resetCategoryForm();
     resetProductForm();

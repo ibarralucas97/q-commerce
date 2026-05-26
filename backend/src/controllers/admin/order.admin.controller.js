@@ -2,7 +2,11 @@ const orderAdminService = require('../../services/admin/order.admin.service');
 
 async function getOrders(req, res) {
   try {
-    const orders = await orderAdminService.getOrders();
+    const closureId = req.query && req.query.closure_id ? Number.parseInt(req.query.closure_id, 10) : null;
+    const orders = await orderAdminService.getOrders({
+      scope: req.query && req.query.scope === 'all' ? 'all' : 'active',
+      closure_id: Number.isNaN(closureId) ? null : closureId
+    });
 
     return res.json(orders);
   } catch (error) {

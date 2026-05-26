@@ -69,6 +69,44 @@
               <button class="secondary-button" id="refreshDashboardButton" type="button">Actualizar</button>
             </div>
             <div class="kpi-grid" id="dashboardSummary"></div>
+
+            <div class="workspace-grid">
+              <div class="workspace-main">
+                <article class="editor-card">
+                  <div class="section-header section-header--compact">
+                    <div>
+                      <p class="eyebrow">Cierre</p>
+                      <h3>Cerrar caja</h3>
+                    </div>
+                    <button class="primary-button" id="closeBatchButton" type="button">Cerrar lote activo</button>
+                  </div>
+
+                  <label class="field">
+                    <span>Observación del cierre</span>
+                    <textarea id="closureNotes" rows="3" placeholder="Ej: cierre sábado noche"></textarea>
+                  </label>
+                </article>
+              </div>
+
+              <div class="workspace-side">
+                <article class="summary-card">
+                  <p class="eyebrow">Historial</p>
+                  <h3>Cierres anteriores</h3>
+                  <p class="muted">Consultá lotes cerrados sin perder pedidos ni gastos históricos.</p>
+                </article>
+                <div class="card-list" id="closuresList"></div>
+              </div>
+            </div>
+
+            <article class="detail-card is-hidden" id="closureDetailCard">
+              <div class="section-header">
+                <div>
+                  <p class="eyebrow">Detalle</p>
+                  <h3 id="closureDetailTitle">Cierre</h3>
+                </div>
+              </div>
+              <div class="detail-body" id="closureDetailBody"></div>
+            </article>
           </section>
 
           <section class="panel-section is-hidden" data-section="orders">
@@ -232,6 +270,17 @@
                   <label class="field">
                     <span>Stock</span>
                     <input id="productStock" type="number" min="0" step="1" />
+                  </label>
+                </div>
+
+                <div class="two-columns">
+                  <label class="field">
+                    <span>Cantidad de selecciones</span>
+                    <input id="productOptionGroupCount" type="number" min="1" step="1" value="1" />
+                  </label>
+                  <label class="field">
+                    <span>Etiqueta de selección</span>
+                    <input id="productOptionGroupLabel" type="text" placeholder="Docena, caja, combo..." />
                   </label>
                 </div>
 
@@ -590,6 +639,22 @@
           </section>
         </main>
       </section>
+
+      <footer class="leico-footer">
+        <div class="leico-brand">
+          <div class="leico-mark">&gt;_</div>
+
+          <div class="leico-terminal">
+            <span class="leico-prompt">root@leico</span><span class="leico-path">:~$</span>
+            <span id="leicoTyping"></span><span class="leico-cursor">█</span>
+          </div>
+        </div>
+
+        <div class="leico-meta">
+          <span>L E I C O</span>
+          <span>Systems · Automation · Ops</span>
+        </div>
+      </footer>
     </div>
 
     <script src="./js/components/toast.js" defer></script>

@@ -57,12 +57,54 @@
       };
     }
 
-    function buildLineId(productId, optionId) {
-      return String(productId) + ':' + (optionId == null ? 'base' : String(optionId));
+    function normalizeSelectedConfig(selectedConfig) {
+      if (!selectedConfig) {
+        return {
+          option_id: null,
+          option_name: null,
+          selection_summary: null,
+          selection_detail: [],
+          selected_option_ids: [],
+          price_modifier_total: 0,
+          line_key: 'base'
+        };
+      }
+
+      if (selectedConfig.selection_detail || selectedConfig.selected_option_ids) {
+        return {
+          option_id: selectedConfig.option_id ?? null,
+          option_name: selectedConfig.option_name ?? null,
+          selection_summary: selectedConfig.selection_summary ?? selectedConfig.option_name ?? null,
+          selection_detail: Array.isArray(selectedConfig.selection_detail) ? selectedConfig.selection_detail : [],
+          selected_option_ids: Array.isArray(selectedConfig.selected_option_ids) ? selectedConfig.selected_option_ids : (selectedConfig.option_id ? [selectedConfig.option_id] : []),
+          price_modifier_total: parsePrice(selectedConfig.price_modifier_total),
+          line_key: selectedConfig.line_key || ((selectedConfig.selected_option_ids || []).join('-') || (selectedConfig.option_id == null ? 'base' : String(selectedConfig.option_id)))
+        };
+      }
+
+      return {
+        option_id: selectedConfig.id ?? null,
+        option_name: selectedConfig.name ?? null,
+        selection_summary: selectedConfig.name ?? null,
+        selection_detail: selectedConfig.id == null ? [] : [{
+          slot: 1,
+          label: 'Selección 1',
+          option_id: selectedConfig.id,
+          option_name: selectedConfig.name
+        }],
+        selected_option_ids: selectedConfig.id == null ? [] : [selectedConfig.id],
+        price_modifier_total: parsePrice(selectedConfig.price_modifier),
+        line_key: selectedConfig.id == null ? 'base' : String(selectedConfig.id)
+      };
+    }
+
+    function buildLineId(productId, selectionKey) {
+      return String(productId) + ':' + selectionKey;
     }
 
     function add(product, selectedOption) {
-      const lineId = buildLineId(product.id, selectedOption ? selectedOption.id : null);
+      const normalizedConfig = normalizeSelectedConfig(selectedOption);
+      const lineId = buildLineId(product.id, normalizedConfig.line_key);
       const existingItem = items.find(function findItem(item) {
         return item.line_id === lineId;
       });
@@ -74,9 +116,12 @@
           line_id: lineId,
           id: product.id,
           name: product.name,
-          option_id: selectedOption ? selectedOption.id : null,
-          option_name: selectedOption ? selectedOption.name : null,
-          price: parsePrice(product.price) + parsePrice(selectedOption ? selectedOption.price_modifier : 0),
+          option_id: normalizedConfig.option_id,
+          option_name: normalizedConfig.option_name,
+          selection_summary: normalizedConfig.selection_summary,
+          selection_detail: normalizedConfig.selection_detail,
+          selected_option_ids: normalizedConfig.selected_option_ids,
+          price: parsePrice(product.price) + normalizedConfig.price_modifier_total,
           image_url: product.image_url || null,
           category_name: product.category_name || null,
           quantity: 1

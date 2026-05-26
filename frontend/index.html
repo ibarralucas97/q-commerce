@@ -115,6 +115,25 @@
               <input id="customerAddress" name="customerAddress" type="text" placeholder="Calle, numero y referencia" />
             </label>
 
+            <div class="location-card">
+              <div class="section-heading section-heading--compact">
+                <div>
+                  <p class="eyebrow">Ubicación</p>
+                  <h3>Confirmá dónde entregamos</h3>
+                </div>
+                <button class="ghost-button" id="detectLocationButton" type="button">Usar mi ubicación</button>
+              </div>
+
+              <label class="field">
+                <span>Link de Google Maps</span>
+                <input id="customerMapsUrl" name="customerMapsUrl" type="url" placeholder="https://maps.app.goo.gl/..." />
+              </label>
+
+              <p class="form-hint" id="locationStatus">
+                Podés escribir la dirección, usar geolocalización o pegar un link de Maps.
+              </p>
+            </div>
+
             <div class="schedule-fields is-hidden" id="scheduleFields">
               <label class="field">
                 <span>Día de entrega o retiro</span>
@@ -173,6 +192,22 @@
           </div>
         </div>
       </div>
+
+      <footer class="leico-footer">
+        <div class="leico-brand">
+          <div class="leico-mark">&gt;_</div>
+
+          <div class="leico-terminal">
+            <span class="leico-prompt">root@leico</span><span class="leico-path">:~$</span>
+            <span id="leicoTyping"></span><span class="leico-cursor">█</span>
+          </div>
+        </div>
+
+        <div class="leico-meta">
+          <span>L E I C O</span>
+          <span>Systems · Automation · Ops</span>
+        </div>
+      </footer>
     </div>
 
     <script src="./js/components/toast.js" defer></script>

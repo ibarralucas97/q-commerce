@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS order_closures (
+  id SERIAL PRIMARY KEY,
+  closure_code VARCHAR(60) NOT NULL UNIQUE,
+  notes TEXT,
+  total_orders INTEGER NOT NULL DEFAULT 0,
+  valid_orders INTEGER NOT NULL DEFAULT 0,
+  cancelled_orders INTEGER NOT NULL DEFAULT 0,
+  total_sales NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+  total_expenses NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+  net_profit NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+  products_summary JSONB NOT NULL DEFAULT '[]'::jsonb,
+  closed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE orders
+  ADD COLUMN IF NOT EXISTS closure_id INTEGER REFERENCES order_closures(id) ON DELETE SET NULL;
+
+ALTER TABLE expenses
+  ADD COLUMN IF NOT EXISTS closure_id INTEGER REFERENCES order_closures(id) ON DELETE SET NULL;

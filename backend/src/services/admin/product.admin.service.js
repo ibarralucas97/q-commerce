@@ -10,6 +10,8 @@ const selectFields = `
     p.price,
     p.image_url,
     p.stock,
+    p.option_group_count,
+    p.option_group_label,
     p.is_active,
     p.created_at,
     p.updated_at
@@ -71,11 +73,13 @@ async function createProduct(payload) {
       price,
       image_url,
       stock,
+      option_group_count,
+      option_group_label,
       is_active,
       created_at,
       updated_at
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
     RETURNING id
   `, [
     payload.category_id,
@@ -84,6 +88,8 @@ async function createProduct(payload) {
     payload.price,
     payload.image_url,
     payload.stock,
+    payload.option_group_count,
+    payload.option_group_label,
     payload.is_active
   ]);
 
@@ -100,7 +106,9 @@ async function updateProduct(productId, payload) {
       price = $5,
       image_url = $6,
       stock = $7,
-      is_active = $8,
+      option_group_count = $8,
+      option_group_label = $9,
+      is_active = $10,
       updated_at = NOW()
     WHERE id = $1
     RETURNING id
@@ -112,6 +120,8 @@ async function updateProduct(productId, payload) {
     payload.price,
     payload.image_url,
     payload.stock,
+    payload.option_group_count,
+    payload.option_group_label,
     payload.is_active
   ]);
 

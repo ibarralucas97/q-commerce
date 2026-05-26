@@ -29,8 +29,34 @@ function normalizeProductPayload(body) {
     price: Number(body.price),
     image_url: body.image_url ?? null,
     stock: normalizeStock(body.stock),
+    option_group_count: Number.parseInt(body.option_group_count === undefined || body.option_group_count === null || body.option_group_count === '' ? 1 : body.option_group_count, 10),
+    option_group_label: typeof body.option_group_label === 'string' && body.option_group_label.trim() !== '' ? body.option_group_label.trim() : null,
     is_active: typeof body.is_active === 'boolean' ? body.is_active : true
   };
+}
+
+function validateNormalizedPayload(payload) {
+  if (typeof payload.name !== 'string' || payload.name.trim() === '') {
+    return 'name is required';
+  }
+
+  if (!Number.isFinite(payload.price) || payload.price < 0) {
+    return 'price must be a non-negative number';
+  }
+
+  if (Number.isNaN(payload.category_id)) {
+    return 'category_id must be a valid integer or null';
+  }
+
+  if (Number.isNaN(payload.stock) || (payload.stock !== null && payload.stock < 0)) {
+    return 'stock must be null or a non-negative integer';
+  }
+
+  if (!Number.isInteger(payload.option_group_count) || payload.option_group_count < 1) {
+    return 'option_group_count must be an integer greater than or equal to 1';
+  }
+
+  return null;
 }
 
 async function getProducts(req, res) {
@@ -78,28 +104,11 @@ async function getProductById(req, res) {
 async function createProduct(req, res) {
   try {
     const payload = normalizeProductPayload(req.body);
+    const validationError = validateNormalizedPayload(payload);
 
-    if (typeof payload.name !== 'string' || payload.name.trim() === '') {
+    if (validationError) {
       return res.status(400).json({
-        error: 'name is required'
-      });
-    }
-
-    if (!Number.isFinite(payload.price) || payload.price < 0) {
-      return res.status(400).json({
-        error: 'price must be a non-negative number'
-      });
-    }
-
-    if (Number.isNaN(payload.category_id)) {
-      return res.status(400).json({
-        error: 'category_id must be a valid integer or null'
-      });
-    }
-
-    if (Number.isNaN(payload.stock) || (payload.stock !== null && payload.stock < 0)) {
-      return res.status(400).json({
-        error: 'stock must be null or a non-negative integer'
+        error: validationError
       });
     }
 
@@ -137,27 +146,11 @@ async function updateProduct(req, res) {
       });
     }
 
-    if (typeof payload.name !== 'string' || payload.name.trim() === '') {
-      return res.status(400).json({
-        error: 'name is required'
-      });
-    }
+    const validationError = validateNormalizedPayload(payload);
 
-    if (!Number.isFinite(payload.price) || payload.price < 0) {
+    if (validationError) {
       return res.status(400).json({
-        error: 'price must be a non-negative number'
-      });
-    }
-
-    if (Number.isNaN(payload.category_id)) {
-      return res.status(400).json({
-        error: 'category_id must be a valid integer or null'
-      });
-    }
-
-    if (Number.isNaN(payload.stock) || (payload.stock !== null && payload.stock < 0)) {
-      return res.status(400).json({
-        error: 'stock must be null or a non-negative integer'
+        error: validationError
       });
     }
 

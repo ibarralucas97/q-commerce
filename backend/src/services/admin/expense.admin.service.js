@@ -8,12 +8,26 @@ function mapExpenseRow(row) {
     description: row.description,
     amount: Number.parseFloat(row.amount) || 0,
     expense_date: row.expense_date,
+    closure_id: row.closure_id || null,
     created_at: row.created_at,
     updated_at: row.updated_at
   };
 }
 
-async function getExpenses() {
+async function getExpenses(options) {
+  const filters = [];
+  const values = [];
+
+  if (!options || options.scope !== 'all') {
+    filters.push('closure_id IS NULL');
+  }
+
+  if (options && Number.isInteger(options.closure_id)) {
+    values.push(options.closure_id);
+    filters.push('closure_id = $' + values.length);
+  }
+
+  const whereClause = filters.length > 0 ? 'WHERE ' + filters.join(' AND ') : '';
   const result = await pool.query(`
     SELECT
       id,
@@ -22,11 +36,13 @@ async function getExpenses() {
       description,
       amount,
       expense_date,
+      closure_id,
       created_at,
       updated_at
     FROM expenses
+    ${whereClause}
     ORDER BY expense_date DESC, id DESC
-  `);
+  `, values);
 
   return result.rows.map(mapExpenseRow);
 }
@@ -40,6 +56,7 @@ async function getExpenseById(expenseId) {
       description,
       amount,
       expense_date,
+      closure_id,
       created_at,
       updated_at
     FROM expenses
@@ -69,6 +86,7 @@ async function createExpense(payload) {
       description,
       amount,
       expense_date,
+      closure_id,
       created_at,
       updated_at
   `, [
@@ -100,6 +118,7 @@ async function updateExpense(expenseId, payload) {
       description,
       amount,
       expense_date,
+      closure_id,
       created_at,
       updated_at
   `, [
@@ -125,6 +144,7 @@ async function deleteExpense(expenseId) {
       description,
       amount,
       expense_date,
+      closure_id,
       created_at,
       updated_at
   `, [expenseId]);

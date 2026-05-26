@@ -10,6 +10,8 @@ const baseSelect = `
     p.price,
     p.image_url,
     p.stock,
+    p.option_group_count,
+    p.option_group_label,
     p.is_active,
     p.created_at,
     p.updated_at

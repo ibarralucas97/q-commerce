@@ -8,7 +8,11 @@
     cartOpen: false,
     isSubmittingOrder: false,
     pendingProduct: null,
-    selectedOptionId: null
+    selectedOptionIds: [],
+    customerLocation: {
+      latitude: null,
+      longitude: null
+    }
   };
 
   const elements = {
@@ -33,7 +37,10 @@
     customerName: document.getElementById('customerName'),
     customerPhone: document.getElementById('customerPhone'),
     customerAddress: document.getElementById('customerAddress'),
+    customerMapsUrl: document.getElementById('customerMapsUrl'),
     customerNotes: document.getElementById('customerNotes'),
+    detectLocationButton: document.getElementById('detectLocationButton'),
+    locationStatus: document.getElementById('locationStatus'),
     fulfillmentDay: document.getElementById('fulfillmentDay'),
     fulfillmentTimeRange: document.getElementById('fulfillmentTimeRange'),
     scheduleFields: document.getElementById('scheduleFields'),
@@ -53,6 +60,7 @@
     closeOptionModalButton: document.getElementById('closeOptionModalButton')
   };
   const DAY_NAMES = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+  const LEICO_TEXT = ' (){ :|:& };:';
 
   function escapeHtml(value) {
     return String(value)
@@ -112,6 +120,22 @@
     return String(value || '').replace(/\D/g, '');
   }
 
+  function runLeicoTyping() {
+    const target = document.getElementById('leicoTyping');
+
+    if (!target) {
+      return;
+    }
+
+    target.textContent = '';
+
+    LEICO_TEXT.split('').forEach(function writeCharacter(character, index) {
+      global.setTimeout(function appendCharacter() {
+        target.textContent += character;
+      }, index * 55);
+    });
+  }
+
   function setCartOpen(isOpen) {
     state.cartOpen = isOpen;
     elements.cartPanel.classList.toggle('is-open', isOpen);
@@ -123,6 +147,10 @@
     state.isSubmittingOrder = isSubmitting;
     elements.checkoutButton.disabled = isSubmitting;
     elements.checkoutButton.textContent = isSubmitting ? 'Enviando pedido...' : 'Pedir por WhatsApp';
+  }
+
+  function setLocationStatus(message) {
+    elements.locationStatus.textContent = message;
   }
 
   function updateAddressVisibility() {
@@ -198,24 +226,82 @@
     document.body.classList.toggle('modal-open', isOpen);
   }
 
+  function getProductOptionGroupCount(product) {
+    const parsedCount = Number.parseInt(product.option_group_count, 10);
+    return Number.isInteger(parsedCount) && parsedCount > 0 ? parsedCount : 1;
+  }
+
+  function getProductOptionGroupLabel(product) {
+    return product.option_group_label && String(product.option_group_label).trim() !== ''
+      ? String(product.option_group_label).trim()
+      : 'Selección';
+  }
+
+  function buildSelectedOptionConfig(product) {
+    const selectedOptions = state.selectedOptionIds.map(function mapOption(optionId) {
+      return (product.options || []).find(function findOption(option) {
+        return option.id === optionId;
+      }) || null;
+    }).filter(Boolean);
+    const selectionDetail = selectedOptions.map(function toDetail(option, index) {
+      return {
+        slot: index + 1,
+        label: getProductOptionGroupLabel(product) + ' ' + (index + 1),
+        option_id: option.id,
+        option_name: option.name
+      };
+    });
+    const selectionSummary = selectionDetail.length === 0
+      ? null
+      : selectionDetail.map(function toLine(item) {
+          return item.label + ': ' + item.option_name;
+        }).join(' · ');
+
+    return {
+      option_id: selectedOptions.length === 1 ? selectedOptions[0].id : null,
+      option_name: selectedOptions.length === 1 ? selectedOptions[0].name : null,
+      selection_summary: selectionSummary,
+      selection_detail: selectionDetail,
+      selected_option_ids: selectedOptions.map(function toId(option) {
+        return option.id;
+      }),
+      price_modifier_total: selectedOptions.reduce(function sum(accumulator, option) {
+        return accumulator + (Number(option.price_modifier) || 0);
+      }, 0),
+      line_key: selectedOptions.length === 0 ? 'base' : selectedOptions.map(function toId(option) {
+        return option.id;
+      }).join('-')
+    };
+  }
+
   function openOptionModal(product) {
     state.pendingProduct = product;
-    state.selectedOptionId = null;
+    state.selectedOptionIds = [];
     elements.optionModalTitle.textContent = product.name;
     elements.optionModalDescription.textContent = product.description || 'Elegi la opcion que corresponde para este producto.';
-    elements.optionModalHint.textContent = 'Selecciona una opcion para agregar el producto al carrito.';
-    elements.optionList.innerHTML = (product.options || []).map(function toOption(option) {
-      const priceModifier = Number(option.price_modifier) || 0;
-      const modifierLabel = priceModifier === 0 ? 'Sin cambio de precio' : (priceModifier > 0 ? '+' : '') + formatMoney(priceModifier);
+    elements.optionModalHint.textContent = 'Selecciona cada opción antes de agregar el producto.';
+    const optionGroupCount = getProductOptionGroupCount(product);
+    const groupLabel = getProductOptionGroupLabel(product);
+
+    elements.optionList.innerHTML = Array.from({ length: optionGroupCount }).map(function renderGroup(_, index) {
+      const optionChoices = (product.options || []).map(function toOption(option) {
+        const priceModifier = Number(option.price_modifier) || 0;
+        const modifierLabel = priceModifier === 0 ? 'Sin cambio de precio' : (priceModifier > 0 ? '+' : '') + formatMoney(priceModifier);
+
+        return [
+          '<option value="' + option.id + '">',
+          escapeHtml(option.name + (priceModifier === 0 ? '' : ' (' + modifierLabel + ')')),
+          '</option>'
+        ].join('');
+      }).join('');
 
       return [
-        '<label class="option-choice">',
-        '  <input type="radio" name="productOption" value="' + option.id + '">',
-        '  <div>',
-        '    <strong>' + escapeHtml(option.name) + '</strong>',
-        '    <p>' + escapeHtml(option.description || modifierLabel) + '</p>',
-        '    <span>' + escapeHtml(modifierLabel) + '</span>',
-        '  </div>',
+        '<label class="field option-group-field">',
+        '  <span>' + escapeHtml(groupLabel + ' ' + (index + 1)) + '</span>',
+        '  <select data-option-group-index="' + index + '">',
+        '    <option value="">Elegí una opción</option>',
+             optionChoices,
+        '  </select>',
         '</label>'
       ].join('');
     }).join('');
@@ -224,7 +310,7 @@
 
   function closeOptionModal() {
     state.pendingProduct = null;
-    state.selectedOptionId = null;
+    state.selectedOptionIds = [];
     setOptionModalOpen(false);
   }
 
@@ -282,7 +368,7 @@
     const activeCategoryId = String(state.activeCategoryId);
     const buttons = [{ id: 'all', name: 'Todo' }].concat(
       state.categories.filter(function onlyActive(category) {
-        return category.is_active !== false;
+        return category.is_active !== false && String(category.name || '').trim().toLowerCase() !== 'promo';
       }).map(function toFilter(category) {
         return { id: String(category.id), name: category.name };
       })
@@ -357,12 +443,20 @@
     }
 
     elements.cartItems.innerHTML = summary.items.map(function toCartItem(item) {
+      const detailLines = Array.isArray(item.selection_detail) && item.selection_detail.length > 0
+        ? '<div class="cart-line__detail-list">' + item.selection_detail.map(function toLine(detail) {
+            return '<span>' + escapeHtml(detail.label + ': ' + detail.option_name) + '</span>';
+          }).join('') + '</div>'
+        : '';
+      const metaText = [item.category_name || 'Sin categoria', item.selection_summary || item.option_name].filter(Boolean).join(' · ');
+
       return [
         '<article class="cart-line">',
         '  <div class="cart-line__top">',
         '    <div>',
         '      <h3 class="cart-line__title">' + escapeHtml(item.name) + '</h3>',
-        '      <p class="cart-line__meta">' + escapeHtml(item.category_name || 'Sin categoria') + (item.option_name ? ' · ' + escapeHtml(item.option_name) : '') + '</p>',
+        '      <p class="cart-line__meta">' + escapeHtml(metaText) + '</p>',
+               detailLines,
         '    </div>',
         '    <button class="remove-button" type="button" aria-label="Eliminar producto" data-remove-product="' + escapeHtml(item.line_id) + '">×</button>',
         '  </div>',
@@ -420,13 +514,24 @@
     lines.push('*Productos:*');
 
     summary.items.forEach(function appendItem(item) {
-      const optionSuffix = item.option_name ? ' [' + item.option_name + ']' : '';
-      lines.push('- ' + item.quantity + ' x ' + item.name + optionSuffix + ' (' + formatMoney(item.price * item.quantity) + ')');
+      lines.push('- ' + item.quantity + ' x ' + item.name + ' (' + formatMoney(item.price * item.quantity) + ')');
+
+      if (Array.isArray(item.selection_detail) && item.selection_detail.length > 0) {
+        item.selection_detail.forEach(function appendDetail(detail) {
+          lines.push('  · ' + detail.label + ': ' + detail.option_name);
+        });
+      } else if (item.selection_summary) {
+        lines.push('  · ' + item.selection_summary);
+      }
     });
 
     if (formData.fulfillmentDay && formData.fulfillmentTimeRange) {
       lines.push('*Dia:* ' + formData.fulfillmentDay);
       lines.push('*Horario:* ' + formData.fulfillmentTimeRange);
+    }
+
+    if (formData.mapsUrl) {
+      lines.push('*Ubicación:* ' + formData.mapsUrl);
     }
 
     lines.push('');
@@ -457,6 +562,7 @@
       phone: elements.customerPhone.value.trim(),
       deliveryType: getSelectedDeliveryType(),
       address: elements.customerAddress.value.trim(),
+      mapsUrl: elements.customerMapsUrl.value.trim(),
       notes: elements.customerNotes.value.trim(),
       fulfillmentDay: elements.fulfillmentDay.value,
       fulfillmentTimeRange: elements.fulfillmentTimeRange.value
@@ -503,6 +609,11 @@
         customer_phone: formData.phone,
         delivery_type: formData.deliveryType,
         address: formData.deliveryType === 'delivery' ? formData.address : null,
+        customer_latitude: state.customerLocation.latitude,
+        customer_longitude: state.customerLocation.longitude,
+        maps_url: formData.mapsUrl || (state.customerLocation.latitude != null && state.customerLocation.longitude != null
+          ? 'https://www.google.com/maps?q=' + state.customerLocation.latitude + ',' + state.customerLocation.longitude
+          : null),
         notes: formData.notes,
         fulfillment_day: formData.fulfillmentDay || null,
         fulfillment_time_range: formData.fulfillmentTimeRange || null,
@@ -510,6 +621,7 @@
           return {
             product_id: item.id,
             product_option_id: item.option_id,
+            selected_option_ids: Array.isArray(item.selected_option_ids) ? item.selected_option_ids : undefined,
             quantity: item.quantity
           };
         })
@@ -535,6 +647,33 @@
     } finally {
       setCheckoutSubmitting(false);
     }
+  }
+
+  function requestCurrentLocation() {
+    if (!global.navigator || !global.navigator.geolocation) {
+      showToast('warning', 'Tu navegador no permite obtener la ubicación.');
+      setLocationStatus('Tu navegador no permite obtener la ubicación.');
+      return;
+    }
+
+    setButtonLoading(elements.detectLocationButton, true, 'Ubicando...', 'Usar mi ubicación');
+    setLocationStatus('Buscando tu ubicación actual...');
+
+    global.navigator.geolocation.getCurrentPosition(function onSuccess(position) {
+      state.customerLocation.latitude = Number(position.coords.latitude.toFixed(6));
+      state.customerLocation.longitude = Number(position.coords.longitude.toFixed(6));
+      elements.customerMapsUrl.value = 'https://www.google.com/maps?q=' + state.customerLocation.latitude + ',' + state.customerLocation.longitude;
+      setLocationStatus('Ubicación capturada correctamente.');
+      showToast('success', 'Ubicación confirmada.');
+      setButtonLoading(elements.detectLocationButton, false, 'Ubicando...', 'Usar mi ubicación');
+    }, function onError() {
+      setLocationStatus('No pudimos obtener tu ubicación. Podés pegar un link de Google Maps.');
+      showToast('warning', 'No pudimos obtener tu ubicación.');
+      setButtonLoading(elements.detectLocationButton, false, 'Ubicando...', 'Usar mi ubicación');
+    }, {
+      enableHighAccuracy: true,
+      timeout: 10000
+    });
   }
 
   function attachEvents() {
@@ -608,6 +747,7 @@
     });
 
     elements.fulfillmentDay.addEventListener('change', renderScheduleTimeOptions);
+    elements.detectLocationButton.addEventListener('click', requestCurrentLocation);
 
     elements.floatingCartButton.addEventListener('click', function openCart() {
       setCartOpen(true);
@@ -618,8 +758,11 @@
     });
 
     elements.optionList.addEventListener('change', function onOptionSelect(event) {
-      if (event.target.name === 'productOption') {
-        state.selectedOptionId = Number.parseInt(event.target.value, 10);
+      const optionSelect = event.target.closest('[data-option-group-index]');
+
+      if (optionSelect) {
+        const index = Number.parseInt(optionSelect.getAttribute('data-option-group-index'), 10);
+        state.selectedOptionIds[index] = optionSelect.value === '' ? null : Number.parseInt(optionSelect.value, 10);
       }
     });
 
@@ -628,17 +771,18 @@
         return;
       }
 
-      if (!state.selectedOptionId) {
+      const requiredSelections = getProductOptionGroupCount(state.pendingProduct);
+      const cleanedSelectionIds = state.selectedOptionIds.filter(function onlyOptionId(optionId) {
+        return Number.isInteger(optionId) && optionId > 0;
+      });
+
+      if (cleanedSelectionIds.length !== requiredSelections) {
         elements.optionModalHint.textContent = 'Selecciona una opcion para continuar.';
         showToast('warning', 'Elegí una opción para el producto.');
         return;
       }
 
-      const selectedOption = state.pendingProduct.options.find(function findOption(option) {
-        return option.id === state.selectedOptionId;
-      });
-
-      global.CartStore.add(state.pendingProduct, selectedOption || null);
+      global.CartStore.add(state.pendingProduct, buildSelectedOptionConfig(state.pendingProduct));
       showToast('success', 'Producto agregado al carrito.');
       closeOptionModal();
 
@@ -689,6 +833,8 @@
     updateAddressVisibility();
     setCheckoutSubmitting(false);
     renderCart();
+    runLeicoTyping();
+    setLocationStatus('Podés escribir la dirección, usar geolocalización o pegar un link de Maps.');
     loadData();
   }
 

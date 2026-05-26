@@ -82,11 +82,35 @@
         body: payload
       });
     },
-    getOrders() {
-      return request('/api/admin/orders');
+    getOrders(options) {
+      const query = [];
+
+      if (options && options.scope === 'all') {
+        query.push('scope=all');
+      }
+
+      if (options && Number.isInteger(options.closure_id)) {
+        query.push('closure_id=' + options.closure_id);
+      }
+
+      return request('/api/admin/orders' + (query.length > 0 ? '?' + query.join('&') : ''));
     },
     getDashboardSummary() {
       return request('/api/admin/dashboard/summary');
+    },
+    getClosures() {
+      return request('/api/admin/closures');
+    },
+    getClosureById(closureId) {
+      return request('/api/admin/closures/' + closureId);
+    },
+    closeActiveBatch(notes) {
+      return request('/api/admin/closures/close', {
+        method: 'POST',
+        body: {
+          notes: notes || null
+        }
+      });
     },
     getExpenses() {
       return request('/api/admin/expenses');
