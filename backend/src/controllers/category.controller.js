@@ -4,11 +4,11 @@ async function getCategories(req, res) {
   try {
     const categories = await categoryService.getCategories();
 
-    res.json(categories);
+    return res.json(categories);
   } catch (error) {
     console.error('Error fetching categories:', error);
 
-    res.status(500).json({
+    return res.status(500).json({
       error: 'internal server error'
     });
   }

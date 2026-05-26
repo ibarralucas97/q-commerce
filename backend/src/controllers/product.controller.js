@@ -4,11 +4,11 @@ async function getProducts(req, res) {
   try {
     const products = await productService.getProducts();
 
-    res.json(products);
+    return res.json(products);
   } catch (error) {
     console.error('Error fetching products:', error);
 
-    res.status(500).json({
+    return res.status(500).json({
       error: 'internal server error'
     });
   }
