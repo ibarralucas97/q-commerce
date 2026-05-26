@@ -131,18 +131,15 @@
               <div class="section-heading section-heading--compact">
                 <div>
                   <p class="eyebrow">Ubicación</p>
-                  <h3>Confirmá dónde entregamos</h3>
+                  <h3>¿Dónde entregamos tu pedido?</h3>
                 </div>
                 <div class="location-card__actions">
                   <button class="secondary-button" id="searchLocationButton" type="button">Buscar ubicación</button>
-                  <button class="ghost-button" id="detectLocationButton" type="button">Usar mi ubicación</button>
+                  <button class="ghost-button" id="detectLocationButton" type="button">Usar mi ubicación actual</button>
                 </div>
               </div>
 
-              <label class="field">
-                <span>Link de Google Maps</span>
-                <input id="customerMapsUrl" name="customerMapsUrl" type="url" placeholder="Se completa al confirmar la ubicación" />
-              </label>
+              <input id="customerMapsUrl" name="customerMapsUrl" type="hidden" />
 
               <div class="location-preview is-hidden" id="locationPreview">
                 <div class="location-preview__meta">

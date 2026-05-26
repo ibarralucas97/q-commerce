@@ -175,6 +175,20 @@
     elements.checkoutButton.textContent = isSubmitting ? 'Enviando pedido...' : 'Pedir por WhatsApp';
   }
 
+  function setButtonLoading(button, isLoading, loadingText, defaultText) {
+    if (!button) {
+      return;
+    }
+
+    if (!button.dataset.defaultText) {
+      button.dataset.defaultText = defaultText || button.textContent.trim();
+    }
+
+    button.disabled = Boolean(isLoading);
+    button.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+    button.textContent = isLoading ? (loadingText || 'Cargando...') : (defaultText || button.dataset.defaultText);
+  }
+
   function setLocationStatus(message) {
     elements.locationStatus.textContent = message;
   }
@@ -182,9 +196,14 @@
   function clearPendingLocation() {
     state.pendingLocationResult = null;
     elements.locationPreview.classList.add('is-hidden');
+    document.body.classList.remove('location-preview-open');
     elements.locationPreviewAddress.textContent = '';
     elements.locationPreviewFrame.removeAttribute('src');
     elements.locationMapCanvas.classList.add('is-hidden');
+
+    if (elements.locationPreviewFrame && elements.locationPreviewFrame.parentElement) {
+      elements.locationPreviewFrame.parentElement.classList.remove('is-hidden');
+    }
 
     if (locationMarker && locationMap) {
       locationMarker.setLatLng(locationMap.getCenter());
@@ -220,7 +239,8 @@
 
     state.pendingLocationResult = locationResult;
     elements.locationPreview.classList.remove('is-hidden');
-    elements.locationPreviewTitle.textContent = 'Ubicación encontrada';
+    document.body.classList.add('location-preview-open');
+    elements.locationPreviewTitle.textContent = 'Confirmar ubicación';
     elements.locationPreviewAddress.textContent = locationResult.displayName || locationResult.address || '';
     elements.locationPreviewFrame.src = buildMapPreviewUrl(locationResult.latitude, locationResult.longitude);
     renderLocationMap(locationResult.latitude, locationResult.longitude);
@@ -325,6 +345,8 @@
 
     if (!isDelivery) {
       clearConfirmedLocation();
+      elements.locationPreview.classList.add('is-hidden');
+      document.body.classList.remove('location-preview-open');
     }
   }
 
@@ -937,6 +959,8 @@
     elements.customerAddress.value = state.pendingLocationResult.displayName || state.pendingLocationResult.address || elements.customerAddress.value;
     elements.customerMapsUrl.value = 'https://www.google.com/maps?q=' + state.customerLocation.latitude + ',' + state.customerLocation.longitude;
     setLocationStatus('Ubicación confirmada para tu pedido.');
+    elements.locationPreview.classList.add('is-hidden');
+    document.body.classList.remove('location-preview-open');
     showToast('success', 'Ubicación confirmada.');
   }
 
@@ -1227,7 +1251,7 @@
     setCheckoutSubmitting(false);
     renderCart();
     runLeicoTyping();
-    setLocationStatus('Podés escribir la dirección, usar geolocalización o pegar un link de Maps.');
+    setLocationStatus('Usá tu ubicación actual o escribí la dirección para ubicar el punto de entrega.');
     loadData();
   }
 
