@@ -1,5 +1,6 @@
 const productAdminService = require('../../services/admin/product.admin.service');
 const productOptionAdminService = require('../../services/admin/product-option.admin.service');
+const auditLogService = require('../../services/audit-log.service');
 
 function buildProductsErrorResponse(code, message, error) {
   return {
@@ -65,6 +66,13 @@ function validateNormalizedPayload(payload) {
   }
 
   return null;
+}
+
+function getAuditActor(req) {
+  return {
+    actorUserId: req.adminUser && req.adminUser.sub ? Number(req.adminUser.sub) : null,
+    actorName: req.adminUser && req.adminUser.username ? req.adminUser.username : 'admin'
+  };
 }
 
 async function getProducts(req, res) {
@@ -141,6 +149,19 @@ async function createProduct(req, res) {
       name: payload.name.trim()
     });
 
+    await auditLogService.log({
+      ...getAuditActor(req),
+      action: 'PRODUCT_CREATED',
+      entityType: 'product',
+      entityId: product.id,
+      entityLabel: product.name,
+      beforeData: null,
+      afterData: product,
+      metadata: {
+        category_id: product.category_id
+      }
+    });
+
     return res.status(201).json(product);
   } catch (error) {
     console.error('Error creating admin product:', error);
@@ -191,9 +212,69 @@ async function updateProduct(req, res) {
       name: payload.name.trim()
     });
 
+    await auditLogService.log({
+      ...getAuditActor(req),
+      action: 'PRODUCT_UPDATED',
+      entityType: 'product',
+      entityId: product.id,
+      entityLabel: product.name,
+      beforeData: existingProduct,
+      afterData: product,
+      metadata: {
+        category_id: product.category_id
+      }
+    });
+
     return res.json(product);
   } catch (error) {
     console.error('Error updating admin product:', error);
+
+    return res.status(500).json({
+      error: 'internal server error'
+    });
+  }
+}
+
+async function deactivateProduct(req, res) {
+  try {
+    const productId = Number.parseInt(req.params.id, 10);
+
+    if (Number.isNaN(productId)) {
+      return res.status(404).json({
+        error: 'product not found'
+      });
+    }
+
+    const existingProduct = await productAdminService.getProductById(productId);
+
+    if (!existingProduct) {
+      return res.status(404).json({
+        error: 'product not found'
+      });
+    }
+
+    const product = await productAdminService.softDeleteProduct(productId);
+
+    if (!product) {
+      return res.status(404).json({
+        error: 'product not found'
+      });
+    }
+
+    await auditLogService.log({
+      ...getAuditActor(req),
+      action: 'PRODUCT_DISABLED',
+      entityType: 'product',
+      entityId: product.id,
+      entityLabel: product.name,
+      beforeData: existingProduct,
+      afterData: product,
+      metadata: null
+    });
+
+    return res.json(product);
+  } catch (error) {
+    console.error('Error deactivating admin product:', error);
 
     return res.status(500).json({
       error: 'internal server error'
@@ -211,15 +292,47 @@ async function deleteProduct(req, res) {
       });
     }
 
-    const product = await productAdminService.softDeleteProduct(productId);
+    const existingProduct = await productAdminService.getProductById(productId);
 
-    if (!product) {
+    if (!existingProduct) {
       return res.status(404).json({
         error: 'product not found'
       });
     }
 
-    return res.json(product);
+    const usageCount = await productAdminService.getOrderItemUsageCount(productId);
+
+    if (usageCount > 0) {
+      return res.status(400).json({
+        error: 'PRODUCT_DELETE_BLOCKED',
+        message: 'No se puede eliminar este producto porque tiene pedidos asociados. Podés desactivarlo para ocultarlo del catálogo.'
+      });
+    }
+
+    const deleted = await productAdminService.hardDeleteProduct(productId);
+
+    if (!deleted) {
+      return res.status(404).json({
+        error: 'product not found'
+      });
+    }
+
+    await auditLogService.log({
+      ...getAuditActor(req),
+      action: 'PRODUCT_DELETED',
+      entityType: 'product',
+      entityId: existingProduct.id,
+      entityLabel: existingProduct.name,
+      beforeData: existingProduct,
+      afterData: null,
+      metadata: {
+        deleted: true
+      }
+    });
+
+    return res.json({
+      message: 'Product deleted successfully'
+    });
   } catch (error) {
     console.error('Error deleting admin product:', error);
 
@@ -317,6 +430,7 @@ module.exports = {
   getProductById,
   createProduct,
   updateProduct,
+  deactivateProduct,
   deleteProduct,
   getProductOptions,
   createProductOption

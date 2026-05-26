@@ -1,4 +1,5 @@
 const fulfillmentScheduleAdminService = require('../../services/admin/fulfillment-schedule.admin.service');
+const auditLogService = require('../../services/audit-log.service');
 
 const FULFILLMENT_TYPES = ['delivery', 'pickup', 'both'];
 
@@ -36,6 +37,13 @@ function validateSchedulePayload(payload) {
   return null;
 }
 
+function getAuditActor(req) {
+  return {
+    actorUserId: req.adminUser && req.adminUser.sub ? Number(req.adminUser.sub) : null,
+    actorName: req.adminUser && req.adminUser.username ? req.adminUser.username : 'admin'
+  };
+}
+
 async function getSchedules(req, res) {
   try {
     const schedules = await fulfillmentScheduleAdminService.getSchedules();
@@ -63,6 +71,17 @@ async function createSchedule(req, res) {
     }
 
     const schedule = await fulfillmentScheduleAdminService.createSchedule(payload);
+
+    await auditLogService.log({
+      ...getAuditActor(req),
+      action: 'SCHEDULE_CREATED',
+      entityType: 'schedule',
+      entityId: schedule.id,
+      entityLabel: String(schedule.day_of_week) + ' ' + String(schedule.start_time).slice(0, 5),
+      beforeData: null,
+      afterData: schedule,
+      metadata: null
+    });
 
     return res.status(201).json(schedule);
   } catch (error) {
@@ -100,6 +119,17 @@ async function updateSchedule(req, res) {
 
     const schedule = await fulfillmentScheduleAdminService.updateSchedule(scheduleId, payload);
 
+    await auditLogService.log({
+      ...getAuditActor(req),
+      action: 'SCHEDULE_UPDATED',
+      entityType: 'schedule',
+      entityId: schedule.id,
+      entityLabel: String(schedule.day_of_week) + ' ' + String(schedule.start_time).slice(0, 5),
+      beforeData: existingSchedule,
+      afterData: schedule,
+      metadata: null
+    });
+
     return res.json(schedule);
   } catch (error) {
     console.error('[PUT /api/admin/fulfillment-schedules/:id] Error updating fulfillment schedule:', error.message);
@@ -113,11 +143,17 @@ async function updateSchedule(req, res) {
   }
 }
 
-async function deleteSchedule(req, res) {
+async function deactivateSchedule(req, res) {
   try {
     const scheduleId = Number.parseInt(req.params.id, 10);
 
     if (Number.isNaN(scheduleId)) {
+      return res.status(404).json({ error: 'schedule not found' });
+    }
+
+    const existingSchedule = await fulfillmentScheduleAdminService.getScheduleById(scheduleId);
+
+    if (!existingSchedule) {
       return res.status(404).json({ error: 'schedule not found' });
     }
 
@@ -127,14 +163,73 @@ async function deleteSchedule(req, res) {
       return res.status(404).json({ error: 'schedule not found' });
     }
 
+    await auditLogService.log({
+      ...getAuditActor(req),
+      action: 'SCHEDULE_DISABLED',
+      entityType: 'schedule',
+      entityId: schedule.id,
+      entityLabel: String(schedule.day_of_week) + ' ' + String(schedule.start_time).slice(0, 5),
+      beforeData: existingSchedule,
+      afterData: schedule,
+      metadata: null
+    });
+
     return res.json(schedule);
+  } catch (error) {
+    console.error('[PATCH /api/admin/fulfillment-schedules/:id/deactivate] Error deactivating fulfillment schedule:', error.message);
+    console.error(error.stack);
+
+    return res.status(500).json({
+      error: 'ADMIN_FULFILLMENT_SCHEDULE_DEACTIVATE_FAILED',
+      message: 'No se pudo desactivar el horario.',
+      details: error.message
+    });
+  }
+}
+
+async function deleteSchedule(req, res) {
+  try {
+    const scheduleId = Number.parseInt(req.params.id, 10);
+
+    if (Number.isNaN(scheduleId)) {
+      return res.status(404).json({ error: 'schedule not found' });
+    }
+
+    const existingSchedule = await fulfillmentScheduleAdminService.getScheduleById(scheduleId);
+
+    if (!existingSchedule) {
+      return res.status(404).json({ error: 'schedule not found' });
+    }
+
+    const schedule = await fulfillmentScheduleAdminService.hardDeleteSchedule(scheduleId);
+
+    if (!schedule) {
+      return res.status(404).json({ error: 'schedule not found' });
+    }
+
+    await auditLogService.log({
+      ...getAuditActor(req),
+      action: 'SCHEDULE_DELETED',
+      entityType: 'schedule',
+      entityId: existingSchedule.id,
+      entityLabel: String(existingSchedule.day_of_week) + ' ' + String(existingSchedule.start_time).slice(0, 5),
+      beforeData: existingSchedule,
+      afterData: null,
+      metadata: {
+        deleted: true
+      }
+    });
+
+    return res.json({
+      message: 'Schedule deleted successfully'
+    });
   } catch (error) {
     console.error('[DELETE /api/admin/fulfillment-schedules/:id] Error deleting fulfillment schedule:', error.message);
     console.error(error.stack);
 
     return res.status(500).json({
       error: 'ADMIN_FULFILLMENT_SCHEDULE_DELETE_FAILED',
-      message: 'No se pudo desactivar el horario.',
+      message: 'No se pudo eliminar el horario.',
       details: error.message
     });
   }
@@ -144,5 +239,6 @@ module.exports = {
   getSchedules,
   createSchedule,
   updateSchedule,
+  deactivateSchedule,
   deleteSchedule
 };

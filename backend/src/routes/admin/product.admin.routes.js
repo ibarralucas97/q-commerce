@@ -10,6 +10,7 @@ router.post('/:productId/options', productAdminController.createProductOption);
 router.get('/:id', productAdminController.getProductById);
 router.post('/', productAdminController.createProduct);
 router.put('/:id', productAdminController.updateProduct);
+router.patch('/:id/deactivate', productAdminController.deactivateProduct);
 router.delete('/:id', productAdminController.deleteProduct);
 
 module.exports = router;

@@ -1,4 +1,12 @@
 const closureAdminService = require('../../services/admin/closure.admin.service');
+const auditLogService = require('../../services/audit-log.service');
+
+function getAuditActor(req) {
+  return {
+    actorUserId: req.adminUser && req.adminUser.sub ? Number(req.adminUser.sub) : null,
+    actorName: req.adminUser && req.adminUser.username ? req.adminUser.username : 'admin'
+  };
+}
 
 async function getClosures(req, res) {
   try {
@@ -50,6 +58,21 @@ async function closeActiveBatch(req, res) {
 
     if (result.error) {
       return res.status(result.statusCode).json({ error: result.error });
+    }
+
+    if (result.closure) {
+      await auditLogService.log({
+        ...getAuditActor(req),
+        action: 'CASH_CLOSED',
+        entityType: 'closure',
+        entityId: result.closure.id,
+        entityLabel: result.closure.closure_code,
+        beforeData: null,
+        afterData: result.closure,
+        metadata: {
+          notes: notes
+        }
+      });
     }
 
     return res.status(201).json(result);

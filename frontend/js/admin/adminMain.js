@@ -12,6 +12,7 @@
     expenses: [],
     schedules: [],
     closures: [],
+    auditLogs: [],
     settings: null,
     selectedOrderId: null,
     selectedProductId: null,
@@ -26,7 +27,12 @@
     isCategoryEditorOpen: false,
     categoryEditorMode: 'create',
     isManualOrderOpen: false,
-    manualOrderItems: []
+    manualOrderItems: [],
+    productFilterStatus: 'active',
+    categoryFilterStatus: 'active',
+    scheduleFilterStatus: 'active',
+    auditEntityFilter: '',
+    auditActionFilter: ''
   };
   let confirmResolver = null;
 
@@ -97,6 +103,7 @@
     productImagePreviewText: document.getElementById('productImagePreviewText'),
     productStock: document.getElementById('productStock'),
     productIsActive: document.getElementById('productIsActive'),
+    productsFilterStatus: document.getElementById('productsFilterStatus'),
     productsList: document.getElementById('productsList'),
     resetProductFormButton: document.getElementById('resetProductFormButton'),
     productOptionForm: document.getElementById('productOptionForm'),
@@ -136,6 +143,7 @@
     categoryEditorTitle: document.getElementById('categoryEditorTitle'),
     categorySubmitButton: document.getElementById('categorySubmitButton'),
     cancelCategoryEditButton: document.getElementById('cancelCategoryEditButton'),
+    categoriesFilterStatus: document.getElementById('categoriesFilterStatus'),
     categoriesList: document.getElementById('categoriesList'),
     scheduleForm: document.getElementById('scheduleForm'),
     scheduleId: document.getElementById('scheduleId'),
@@ -149,7 +157,11 @@
     scheduleEditorTitle: document.getElementById('scheduleEditorTitle'),
     scheduleSubmitButton: document.getElementById('scheduleSubmitButton'),
     cancelScheduleEditButton: document.getElementById('cancelScheduleEditButton'),
+    schedulesFilterStatus: document.getElementById('schedulesFilterStatus'),
     schedulesList: document.getElementById('schedulesList'),
+    auditEntityFilter: document.getElementById('auditEntityFilter'),
+    auditActionFilter: document.getElementById('auditActionFilter'),
+    auditLogsList: document.getElementById('auditLogsList'),
     settingsForm: document.getElementById('settingsForm'),
     settingsStoreName: document.getElementById('settingsStoreName'),
     settingsDescription: document.getElementById('settingsDescription'),
@@ -315,6 +327,80 @@
 
   function renderEmpty(container, message) {
     container.innerHTML = '<article class="list-card"><p class="muted">' + escapeHtml(message) + '</p></article>';
+  }
+
+  function getFilteredCollection(items, status) {
+    if (status === 'inactive') {
+      return items.filter(function onlyInactive(item) {
+        return item.is_active === false;
+      });
+    }
+
+    if (status === 'all') {
+      return items;
+    }
+
+    return items.filter(function onlyActive(item) {
+      return item.is_active !== false;
+    });
+  }
+
+  function getFilteredProducts() {
+    return getFilteredCollection(state.products, state.productFilterStatus);
+  }
+
+  function getFilteredCategories() {
+    return getFilteredCollection(state.categories, state.categoryFilterStatus).filter(function ignorePromo(category) {
+      return String(category.name || '').trim().toLowerCase() !== 'promo';
+    });
+  }
+
+  function getFilteredSchedules() {
+    return getFilteredCollection(state.schedules, state.scheduleFilterStatus);
+  }
+
+  function getAuditEntityLabel(entityType) {
+    const labels = {
+      product: 'Producto',
+      category: 'Categoria',
+      schedule: 'Horario',
+      order: 'Pedido',
+      expense: 'Gasto',
+      closure: 'Caja',
+      settings: 'Configuracion'
+    };
+
+    return labels[entityType] || entityType || 'Registro';
+  }
+
+  function getAuditActionLabel(action) {
+    const labels = {
+      PRODUCT_CREATED: 'Producto creado',
+      PRODUCT_UPDATED: 'Producto actualizado',
+      PRODUCT_DISABLED: 'Producto desactivado',
+      PRODUCT_ENABLED: 'Producto activado',
+      PRODUCT_DELETED: 'Producto eliminado',
+      CATEGORY_CREATED: 'Categoria creada',
+      CATEGORY_UPDATED: 'Categoria actualizada',
+      CATEGORY_DISABLED: 'Categoria desactivada',
+      CATEGORY_ENABLED: 'Categoria activada',
+      CATEGORY_DELETED: 'Categoria eliminada',
+      SCHEDULE_CREATED: 'Horario creado',
+      SCHEDULE_UPDATED: 'Horario actualizado',
+      SCHEDULE_DISABLED: 'Horario desactivado',
+      SCHEDULE_ENABLED: 'Horario activado',
+      SCHEDULE_DELETED: 'Horario eliminado',
+      ORDER_STATUS_UPDATED: 'Estado de pedido actualizado',
+      ORDER_CANCELLED: 'Pedido cancelado',
+      ORDER_DELETED: 'Pedido eliminado',
+      EXPENSE_CREATED: 'Gasto creado',
+      EXPENSE_UPDATED: 'Gasto actualizado',
+      EXPENSE_DELETED: 'Gasto eliminado',
+      CASH_CLOSED: 'Caja cerrada',
+      SETTINGS_UPDATED: 'Configuracion actualizada'
+    };
+
+    return labels[action] || action || 'Accion';
   }
 
   function setButtonLoading(button, isLoading, loadingText, defaultText) {
@@ -912,7 +998,8 @@
         '      </select>',
         locationUrl ? '      <a class="status-action" href="' + escapeHtml(locationUrl) + '" target="_blank" rel="noopener noreferrer">Abrir ubicación</a>' : '',
         '      <button class="status-action" type="button" data-view-order="' + order.id + '">Ver</button>',
-        '      <button class="status-action" type="button" data-cancel-order="' + order.id + '">Eliminar</button>',
+        '      <button class="status-action" type="button" data-cancel-order="' + order.id + '">Cancelar</button>',
+        '      <button class="status-action" type="button" data-delete-order="' + order.id + '">Eliminar</button>',
         '    </div>',
         '  </div>',
         '</article>'
@@ -937,12 +1024,14 @@
   }
 
   function renderProducts() {
-    if (state.products.length === 0) {
+    const products = getFilteredProducts();
+
+    if (products.length === 0) {
       renderEmpty(elements.productsList, 'No hay productos cargados.');
       return;
     }
 
-    elements.productsList.innerHTML = state.products.map(function toCard(product) {
+    elements.productsList.innerHTML = products.map(function toCard(product) {
       const optionsCount = Array.isArray(product.options) ? product.options.length : 0;
       const media = product.image_url ? '<img src="' + escapeHtml(product.image_url) + '" alt="' + escapeHtml(product.name) + '" />' : '<span>Sin imagen</span>';
 
@@ -964,6 +1053,7 @@
         '    <div class="card-actions admin-product-actions">',
         '      <button class="status-action admin-product-action-btn" type="button" data-edit-product="' + product.id + '">Editar</button>',
         '      <button class="status-action admin-product-action-btn" type="button" data-manage-options="' + product.id + '">Opciones</button>',
+        '      <button class="status-action admin-product-action-btn" type="button" data-deactivate-product="' + product.id + '">Desactivar</button>',
         '      <button class="status-action admin-product-action-btn" type="button" data-delete-product="' + product.id + '">Eliminar</button>',
         '    </div>',
         '  </div>',
@@ -1039,16 +1129,14 @@
   }
 
   function renderCategories() {
-    if (state.categories.length === 0) {
+    const categories = getFilteredCategories();
+
+    if (categories.length === 0) {
       renderEmpty(elements.categoriesList, 'No hay categorias cargadas.');
       return;
     }
 
-    elements.categoriesList.innerHTML = state.categories.map(function toCard(category) {
-      if (String(category.name || '').trim().toLowerCase() === 'promo') {
-        return '';
-      }
-
+    elements.categoriesList.innerHTML = categories.map(function toCard(category) {
       return [
         '<article class="list-card">',
         '  <div class="list-row">',
@@ -1060,6 +1148,7 @@
         '  </div>',
         '  <div class="card-actions">',
         '    <button class="status-action" type="button" data-edit-category="' + category.id + '">Editar</button>',
+        '    <button class="status-action" type="button" data-deactivate-category="' + category.id + '">Desactivar</button>',
         '    <button class="status-action" type="button" data-delete-category="' + category.id + '">Eliminar</button>',
         '  </div>',
         '</article>'
@@ -1068,12 +1157,14 @@
   }
 
   function renderSchedules() {
-    if (state.schedules.length === 0) {
+    const schedules = getFilteredSchedules();
+
+    if (schedules.length === 0) {
       renderEmpty(elements.schedulesList, 'No hay horarios configurados.');
       return;
     }
 
-    elements.schedulesList.innerHTML = state.schedules.map(function toCard(schedule) {
+    elements.schedulesList.innerHTML = schedules.map(function toCard(schedule) {
       return [
         '<article class="list-card">',
         '  <div class="list-row">',
@@ -1088,8 +1179,44 @@
         '  </div>',
         '  <div class="card-actions">',
         '    <button class="status-action" type="button" data-edit-schedule="' + schedule.id + '">Editar</button>',
+        '    <button class="status-action" type="button" data-deactivate-schedule="' + schedule.id + '">Desactivar</button>',
         '    <button class="status-action" type="button" data-delete-schedule="' + schedule.id + '">Eliminar</button>',
         '  </div>',
+        '</article>'
+      ].join('');
+    }).join('');
+  }
+
+  function renderAuditLogs() {
+    const filteredLogs = state.auditLogs.filter(function applyFilters(log) {
+      const matchesEntity = !state.auditEntityFilter || log.entity_type === state.auditEntityFilter;
+      const matchesAction = !state.auditActionFilter || String(log.action || '').includes(state.auditActionFilter);
+      return matchesEntity && matchesAction;
+    });
+
+    if (filteredLogs.length === 0) {
+      renderEmpty(elements.auditLogsList, 'No hay registros de actividad para los filtros seleccionados.');
+      return;
+    }
+
+    elements.auditLogsList.innerHTML = filteredLogs.map(function toAuditCard(log) {
+      const label = log.entity_label || (log.entity_id ? '#' + log.entity_id : 'Sin referencia');
+      const actor = log.actor_name || 'admin';
+
+      return [
+        '<article class="list-card audit-log-card">',
+        '  <div class="list-row">',
+        '    <div>',
+        '      <strong>' + escapeHtml(getAuditActionLabel(log.action)) + '</strong>',
+        '      <div class="audit-log-card__meta">',
+        '        <span>' + escapeHtml(getAuditEntityLabel(log.entity_type)) + '</span>',
+        '        <span>' + escapeHtml(label) + '</span>',
+        '        <span>' + escapeHtml(actor) + '</span>',
+        '        <span>' + escapeHtml(formatDate(log.created_at)) + '</span>',
+        '      </div>',
+        '    </div>',
+        '  </div>',
+        '  <div class="audit-log-card__detail">' + escapeHtml(log.entity_label || 'Cambio registrado en el panel.') + '</div>',
         '</article>'
       ].join('');
     }).join('');
@@ -1193,7 +1320,8 @@
         global.AdminApi.getCategories(),
         global.AdminApi.getSettings(),
         global.AdminApi.getFulfillmentSchedules(),
-        global.AdminApi.getExpenses()
+        global.AdminApi.getExpenses(),
+        global.AdminApi.getAuditLogs()
       ]);
       const failures = [];
 
@@ -1221,6 +1349,7 @@
       state.settings = resolveResource(5, state.settings, 'Configuración');
       state.schedules = resolveResource(6, [], 'Horarios');
       state.expenses = resolveResource(7, [], 'Gastos');
+      state.auditLogs = resolveResource(8, [], 'Actividad');
       state.productOptions = [];
 
       if (state.selectedProductId && state.isProductOptionsOpen) {
@@ -1247,6 +1376,7 @@
       renderExpenses();
       renderCategories();
       renderSchedules();
+      renderAuditLogs();
       renderManualOrderScheduleFields();
       renderManualOrderItems();
       renderOrderDetailPlaceholder();
@@ -1330,6 +1460,7 @@
   async function handleOrdersListClick(event) {
     const viewButton = event.target.closest('[data-view-order]');
     const cancelButton = event.target.closest('[data-cancel-order]');
+    const deleteButton = event.target.closest('[data-delete-order]');
 
     if (viewButton) {
       state.selectedOrderId = Number.parseInt(viewButton.getAttribute('data-view-order'), 10);
@@ -1340,9 +1471,9 @@
     if (cancelButton) {
       try {
         const shouldDelete = await requestConfirmation({
-          title: 'Eliminar pedido',
-          message: '¿Seguro que querés eliminar este pedido? Se marcará como cancelado para conservar el historial.',
-          confirmText: 'Eliminar'
+          title: 'Cancelar pedido',
+          message: '¿Querés cancelar este pedido? Se conservará en el historial y dejará de contar como activo.',
+          confirmText: 'Cancelar pedido'
         });
 
         if (!shouldDelete) {
@@ -1350,6 +1481,26 @@
         }
 
         await global.AdminApi.cancelOrder(Number.parseInt(cancelButton.getAttribute('data-cancel-order'), 10));
+        await loadData();
+        showToast('warning', 'Pedido cancelado.');
+      } catch (error) {
+        handleApiError(error);
+      }
+    }
+
+    if (deleteButton) {
+      try {
+        const shouldDelete = await requestConfirmation({
+          title: 'Eliminar pedido',
+          message: 'Esta acción puede ser permanente. Si el pedido pertenece a un cierre, deberás cancelarlo en lugar de eliminarlo.',
+          confirmText: 'Eliminar'
+        });
+
+        if (!shouldDelete) {
+          return;
+        }
+
+        await global.AdminApi.deleteOrder(Number.parseInt(deleteButton.getAttribute('data-delete-order'), 10));
         await loadData();
         showToast('warning', 'Pedido eliminado.');
       } catch (error) {
@@ -1432,6 +1583,7 @@
   async function handleProductsListClick(event) {
     const editButton = event.target.closest('[data-edit-product]');
     const optionsButton = event.target.closest('[data-manage-options]');
+    const deactivateButton = event.target.closest('[data-deactivate-product]');
     const deleteButton = event.target.closest('[data-delete-product]');
 
     if (editButton) {
@@ -1477,11 +1629,31 @@
       }
     }
 
+    if (deactivateButton) {
+      try {
+        const shouldDeactivate = await requestConfirmation({
+          title: 'Desactivar producto',
+          message: '¿Querés desactivar este producto? Ya no aparecerá en el catálogo.',
+          confirmText: 'Desactivar'
+        });
+
+        if (!shouldDeactivate) {
+          return;
+        }
+
+        await global.AdminApi.deactivateProduct(Number.parseInt(deactivateButton.getAttribute('data-deactivate-product'), 10));
+        await loadData();
+        showToast('warning', 'Producto desactivado.');
+      } catch (error) {
+        handleApiError(error);
+      }
+    }
+
     if (deleteButton) {
       try {
         const shouldDelete = await requestConfirmation({
           title: 'Eliminar producto',
-          message: '¿Seguro que querés eliminar este producto? Esta acción lo quita del catálogo.',
+          message: 'Esta acción puede ser permanente. Si el producto tiene pedidos asociados, deberás desactivarlo.',
           confirmText: 'Eliminar'
         });
 
@@ -1667,6 +1839,7 @@
 
   async function handleCategoriesListClick(event) {
     const editButton = event.target.closest('[data-edit-category]');
+    const deactivateButton = event.target.closest('[data-deactivate-category]');
     const deleteButton = event.target.closest('[data-delete-category]');
 
     if (editButton) {
@@ -1685,11 +1858,31 @@
       }
     }
 
+    if (deactivateButton) {
+      try {
+        const shouldDeactivate = await requestConfirmation({
+          title: 'Desactivar categoría',
+          message: '¿Querés desactivar esta categoría? Ya no aparecerá en la lista principal.',
+          confirmText: 'Desactivar'
+        });
+
+        if (!shouldDeactivate) {
+          return;
+        }
+
+        await global.AdminApi.deactivateCategory(Number.parseInt(deactivateButton.getAttribute('data-deactivate-category'), 10));
+        await loadData();
+        showToast('warning', 'Categoría desactivada.');
+      } catch (error) {
+        handleApiError(error);
+      }
+    }
+
     if (deleteButton) {
       try {
         const shouldDelete = await requestConfirmation({
           title: 'Eliminar categoría',
-          message: '¿Seguro que querés eliminar esta categoría? Los productos históricos no se perderán.',
+          message: 'Esta acción puede ser permanente. Si la categoría tiene productos asociados, deberás desactivarla.',
           confirmText: 'Eliminar'
         });
 
@@ -1919,6 +2112,7 @@
 
   async function handleSchedulesListClick(event) {
     const editButton = event.target.closest('[data-edit-schedule]');
+    const deactivateButton = event.target.closest('[data-deactivate-schedule]');
     const deleteButton = event.target.closest('[data-delete-schedule]');
 
     if (editButton) {
@@ -1943,11 +2137,31 @@
       showToast('info', 'Editando horario.');
     }
 
+    if (deactivateButton) {
+      try {
+        const shouldDeactivate = await requestConfirmation({
+          title: 'Desactivar horario',
+          message: '¿Querés desactivar este horario? Ya no estará disponible para nuevos pedidos.',
+          confirmText: 'Desactivar'
+        });
+
+        if (!shouldDeactivate) {
+          return;
+        }
+
+        await global.AdminApi.deactivateFulfillmentSchedule(Number.parseInt(deactivateButton.getAttribute('data-deactivate-schedule'), 10));
+        await loadData();
+        showToast('warning', 'Horario desactivado.');
+      } catch (error) {
+        handleApiError(error);
+      }
+    }
+
     if (deleteButton) {
       try {
         const shouldDelete = await requestConfirmation({
           title: 'Eliminar horario',
-          message: '¿Seguro que querés eliminar este horario?',
+          message: 'Esta acción puede ser permanente. Si solo querés dejarlo fuera de servicio, usá Desactivar.',
           confirmText: 'Eliminar'
         });
 
@@ -2042,6 +2256,10 @@
     elements.productImageUrl.addEventListener('input', updateProductImagePreview);
     elements.uploadProductImageButton.addEventListener('click', handleProductImageUpload);
     elements.productsList.addEventListener('click', handleProductsListClick);
+    elements.productsFilterStatus.addEventListener('change', function handleProductsFilterChange() {
+      state.productFilterStatus = elements.productsFilterStatus.value;
+      renderProducts();
+    });
     elements.cancelProductEditButton.addEventListener('click', function cancelProductEdit() {
       resetProductForm();
       closeProductEditor();
@@ -2073,6 +2291,10 @@
     });
     elements.categoryForm.addEventListener('submit', handleCategorySubmit);
     elements.categoriesList.addEventListener('click', handleCategoriesListClick);
+    elements.categoriesFilterStatus.addEventListener('change', function handleCategoriesFilterChange() {
+      state.categoryFilterStatus = elements.categoriesFilterStatus.value;
+      renderCategories();
+    });
     elements.cancelCategoryEditButton.addEventListener('click', function cancelCategoryEdit() {
       resetCategoryForm();
       closeCategoryEditor();
@@ -2085,6 +2307,10 @@
     });
     elements.scheduleForm.addEventListener('submit', handleScheduleSubmit);
     elements.schedulesList.addEventListener('click', handleSchedulesListClick);
+    elements.schedulesFilterStatus.addEventListener('change', function handleSchedulesFilterChange() {
+      state.scheduleFilterStatus = elements.schedulesFilterStatus.value;
+      renderSchedules();
+    });
     elements.cancelScheduleEditButton.addEventListener('click', function cancelScheduleEdit() {
       resetScheduleForm();
       closeScheduleEditor();
@@ -2106,6 +2332,14 @@
         elements.settingsSecondaryColorPicker.value = elements.settingsSecondaryColor.value.trim();
       }
     });
+    elements.auditEntityFilter.addEventListener('change', function handleAuditEntityFilterChange() {
+      state.auditEntityFilter = elements.auditEntityFilter.value;
+      renderAuditLogs();
+    });
+    elements.auditActionFilter.addEventListener('change', function handleAuditActionFilterChange() {
+      state.auditActionFilter = elements.auditActionFilter.value;
+      renderAuditLogs();
+    });
     elements.confirmDialogConfirm.addEventListener('click', function confirmDeletion() {
       closeConfirmDialog(true);
     });
@@ -2120,6 +2354,11 @@
 
   async function init() {
     attachEvents();
+    elements.productsFilterStatus.value = state.productFilterStatus;
+    elements.categoriesFilterStatus.value = state.categoryFilterStatus;
+    elements.schedulesFilterStatus.value = state.scheduleFilterStatus;
+    elements.auditEntityFilter.value = state.auditEntityFilter;
+    elements.auditActionFilter.value = state.auditActionFilter;
     runLeicoTyping();
     setActiveTab('dashboard');
     resetCategoryForm();

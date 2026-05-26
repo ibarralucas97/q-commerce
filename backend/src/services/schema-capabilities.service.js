@@ -15,6 +15,7 @@ async function loadCapabilities() {
         OR (table_name = 'orders' AND column_name = ANY($2::text[]))
         OR (table_name = 'order_items' AND column_name = ANY($3::text[]))
         OR (table_name = 'expenses' AND column_name = ANY($4::text[]))
+        OR (table_name = 'admin_audit_logs' AND column_name = ANY($5::text[]))
       )
   `, [[
     'option_group_count',
@@ -34,13 +35,24 @@ async function loadCapabilities() {
   ], [
     'category',
     'closure_id'
+  ], [
+    'actor_user_id',
+    'actor_name',
+    'action',
+    'entity_type',
+    'entity_id',
+    'entity_label',
+    'before_data',
+    'after_data',
+    'metadata'
   ]]);
 
   const relationsResult = await pool.query(`
     SELECT
       to_regclass('public.product_options') IS NOT NULL AS has_product_options,
       to_regclass('public.fulfillment_schedules') IS NOT NULL AS has_fulfillment_schedules,
-      to_regclass('public.order_closures') IS NOT NULL AS has_order_closures
+      to_regclass('public.order_closures') IS NOT NULL AS has_order_closures,
+      to_regclass('public.admin_audit_logs') IS NOT NULL AS has_admin_audit_logs
   `);
 
   const productColumns = new Set(
@@ -79,6 +91,15 @@ async function loadCapabilities() {
         return row.column_name;
       })
   );
+  const auditLogColumns = new Set(
+    columnsResult.rows
+      .filter(function onlyAuditColumns(row) {
+        return row.table_name === 'admin_audit_logs';
+      })
+      .map(function toColumnName(row) {
+        return row.column_name;
+      })
+  );
   const relationRow = relationsResult.rows[0] || {};
 
   return {
@@ -98,7 +119,11 @@ async function loadCapabilities() {
     hasOrderItemSelectionSummary: orderItemColumns.has('selection_summary'),
     hasOrderItemSelectionDetail: orderItemColumns.has('selection_detail'),
     hasExpenseCategory: expenseColumns.has('category'),
-    hasExpenseClosureId: expenseColumns.has('closure_id')
+    hasExpenseClosureId: expenseColumns.has('closure_id'),
+    hasAdminAuditLogsTable: Boolean(relationRow.has_admin_audit_logs),
+    hasAdminAuditBeforeData: auditLogColumns.has('before_data'),
+    hasAdminAuditAfterData: auditLogColumns.has('after_data'),
+    hasAdminAuditMetadata: auditLogColumns.has('metadata')
   };
 }
 

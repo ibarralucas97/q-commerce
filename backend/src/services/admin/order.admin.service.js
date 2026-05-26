@@ -174,10 +174,47 @@ async function cancelOrder(orderId) {
   return updateOrderStatus(orderId, 'cancelled');
 }
 
+async function hardDeleteOrder(orderId) {
+  const capabilities = await getSchemaCapabilities();
+  const order = await getOrderById(orderId);
+
+  if (!order) {
+    return {
+      order: null
+    };
+  }
+
+  if (capabilities.hasOrderClosureId && order.closure_id != null) {
+    return {
+      error: 'No se puede eliminar este pedido porque ya pertenece a un cierre de caja. Podés cancelarlo para mantener el historial.',
+      statusCode: 400,
+      order: order
+    };
+  }
+
+  const result = await pool.query(`
+    DELETE FROM orders
+    WHERE id = $1
+    RETURNING id
+  `, [orderId]);
+
+  if (result.rowCount === 0) {
+    return {
+      order: null
+    };
+  }
+
+  return {
+    deleted: true,
+    order: order
+  };
+}
+
 module.exports = {
   ALLOWED_STATUSES,
   getOrders,
   getOrderById,
   updateOrderStatus,
-  cancelOrder
+  cancelOrder,
+  hardDeleteOrder
 };

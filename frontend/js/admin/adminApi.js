@@ -167,6 +167,11 @@
       });
     },
     cancelOrder(orderId) {
+      return request('/api/admin/orders/' + orderId + '/cancel', {
+        method: 'PATCH'
+      });
+    },
+    deleteOrder(orderId) {
       return request('/api/admin/orders/' + orderId, {
         method: 'DELETE'
       });
@@ -195,6 +200,11 @@
     deleteProduct(productId) {
       return request('/api/admin/products/' + productId, {
         method: 'DELETE'
+      });
+    },
+    deactivateProduct(productId) {
+      return request('/api/admin/products/' + productId + '/deactivate', {
+        method: 'PATCH'
       });
     },
     getProductOptions(productId) {
@@ -240,6 +250,11 @@
         method: 'DELETE'
       });
     },
+    deactivateCategory(categoryId) {
+      return request('/api/admin/categories/' + categoryId + '/deactivate', {
+        method: 'PATCH'
+      });
+    },
     getSettings() {
       return request('/api/admin/settings');
     },
@@ -268,6 +283,24 @@
       return request('/api/admin/fulfillment-schedules/' + scheduleId, {
         method: 'DELETE'
       });
+    },
+    deactivateFulfillmentSchedule(scheduleId) {
+      return request('/api/admin/fulfillment-schedules/' + scheduleId + '/deactivate', {
+        method: 'PATCH'
+      });
+    },
+    getAuditLogs(filters) {
+      const query = new URLSearchParams();
+
+      if (filters && filters.entity_type) {
+        query.set('entity_type', filters.entity_type);
+      }
+
+      if (filters && filters.action) {
+        query.set('action', filters.action);
+      }
+
+      return request('/api/admin/audit-logs' + (query.toString() ? '?' + query.toString() : ''));
     }
   };
 })(window);

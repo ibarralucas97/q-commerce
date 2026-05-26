@@ -1,4 +1,5 @@
 const expenseAdminService = require('../../services/admin/expense.admin.service');
+const auditLogService = require('../../services/audit-log.service');
 
 function normalizeExpensePayload(body) {
   return {
@@ -24,6 +25,13 @@ function validateExpensePayload(payload) {
   }
 
   return null;
+}
+
+function getAuditActor(req) {
+  return {
+    actorUserId: req.adminUser && req.adminUser.sub ? Number(req.adminUser.sub) : null,
+    actorName: req.adminUser && req.adminUser.username ? req.adminUser.username : 'admin'
+  };
 }
 
 async function getExpenses(req, res) {
@@ -85,6 +93,17 @@ async function createExpense(req, res) {
 
     const expense = await expenseAdminService.createExpense(payload);
 
+    await auditLogService.log({
+      ...getAuditActor(req),
+      action: 'EXPENSE_CREATED',
+      entityType: 'expense',
+      entityId: expense.id,
+      entityLabel: expense.title,
+      beforeData: null,
+      afterData: expense,
+      metadata: null
+    });
+
     return res.status(201).json(expense);
   } catch (error) {
     console.error('[POST /api/admin/expenses] Error creating expense:', error.message);
@@ -113,11 +132,28 @@ async function updateExpense(req, res) {
       return res.status(400).json({ error: validationError });
     }
 
+    const existingExpense = await expenseAdminService.getExpenseById(expenseId);
+
+    if (!existingExpense) {
+      return res.status(404).json({ error: 'expense not found' });
+    }
+
     const expense = await expenseAdminService.updateExpense(expenseId, payload);
 
     if (!expense) {
       return res.status(404).json({ error: 'expense not found' });
     }
+
+    await auditLogService.log({
+      ...getAuditActor(req),
+      action: 'EXPENSE_UPDATED',
+      entityType: 'expense',
+      entityId: expense.id,
+      entityLabel: expense.title,
+      beforeData: existingExpense,
+      afterData: expense,
+      metadata: null
+    });
 
     return res.json(expense);
   } catch (error) {
@@ -145,6 +181,19 @@ async function deleteExpense(req, res) {
     if (!expense) {
       return res.status(404).json({ error: 'expense not found' });
     }
+
+    await auditLogService.log({
+      ...getAuditActor(req),
+      action: 'EXPENSE_DELETED',
+      entityType: 'expense',
+      entityId: expense.id,
+      entityLabel: expense.title,
+      beforeData: expense,
+      afterData: null,
+      metadata: {
+        deleted: true
+      }
+    });
 
     return res.json({
       message: 'Expense deleted successfully',

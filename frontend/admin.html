@@ -55,6 +55,7 @@
           <button class="tab-button" type="button" data-tab="expenses">Gastos</button>
           <button class="tab-button" type="button" data-tab="schedules">Horarios</button>
           <button class="tab-button" type="button" data-tab="categories">Categorias</button>
+          <button class="tab-button" type="button" data-tab="logs">Actividad</button>
           <button class="tab-button" type="button" data-tab="settings">Configuracion</button>
         </nav>
 
@@ -236,7 +237,14 @@
                 <h2>Mis Productos</h2>
                 <p class="muted">Gestiona los productos visibles en el catalogo.</p>
               </div>
-              <button class="primary-button" id="openNewProductButton" type="button">+ Nuevo producto</button>
+              <div class="form-actions">
+                <select class="inline-select" id="productsFilterStatus">
+                  <option value="active">Activos</option>
+                  <option value="inactive">Inactivos</option>
+                  <option value="all">Todos</option>
+                </select>
+                <button class="primary-button" id="openNewProductButton" type="button">+ Nuevo producto</button>
+              </div>
             </div>
 
             <div class="card-list" id="productsList"></div>
@@ -446,7 +454,14 @@
                 <h2>Horarios de atencion</h2>
                 <p class="muted">Defini dias y rangos horarios para delivery o retiro.</p>
               </div>
-              <button class="primary-button" id="openScheduleEditorButton" type="button">+ Nuevo horario</button>
+              <div class="form-actions">
+                <select class="inline-select" id="schedulesFilterStatus">
+                  <option value="active">Activos</option>
+                  <option value="inactive">Inactivos</option>
+                  <option value="all">Todos</option>
+                </select>
+                <button class="primary-button" id="openScheduleEditorButton" type="button">+ Nuevo horario</button>
+              </div>
             </div>
 
             <div class="card-list" id="schedulesList"></div>
@@ -516,7 +531,14 @@
                 <h2>Mis Categorias</h2>
                 <p class="muted">Organiza los productos del catalogo.</p>
               </div>
-              <button class="primary-button" id="openCategoryEditorButton" type="button">+ Nueva categoria</button>
+              <div class="form-actions">
+                <select class="inline-select" id="categoriesFilterStatus">
+                  <option value="active">Activos</option>
+                  <option value="inactive">Inactivos</option>
+                  <option value="all">Todos</option>
+                </select>
+                <button class="primary-button" id="openCategoryEditorButton" type="button">+ Nueva categoria</button>
+              </div>
             </div>
 
             <div class="card-list" id="categoriesList"></div>
@@ -552,6 +574,40 @@
               </label>
             </form>
             </article>
+          </section>
+
+          <section class="panel-section is-hidden" data-section="logs">
+            <div class="section-header product-section-header">
+              <div>
+                <p class="eyebrow">Auditoria</p>
+                <h2>Actividad del admin</h2>
+                <p class="muted">Revisa cambios clave del panel y acciones sensibles.</p>
+              </div>
+              <div class="form-actions">
+                <select class="inline-select" id="auditEntityFilter">
+                  <option value="">Todas las entidades</option>
+                  <option value="product">Productos</option>
+                  <option value="category">Categorias</option>
+                  <option value="schedule">Horarios</option>
+                  <option value="order">Pedidos</option>
+                  <option value="expense">Gastos</option>
+                  <option value="closure">Caja</option>
+                  <option value="settings">Configuracion</option>
+                </select>
+                <select class="inline-select" id="auditActionFilter">
+                  <option value="">Todas las acciones</option>
+                  <option value="CREATED">Creacion</option>
+                  <option value="UPDATED">Actualizacion</option>
+                  <option value="DISABLED">Desactivacion</option>
+                  <option value="ENABLED">Activacion</option>
+                  <option value="CANCELLED">Cancelacion</option>
+                  <option value="DELETED">Eliminacion</option>
+                  <option value="CLOSED">Cierre</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="card-list" id="auditLogsList"></div>
           </section>
 
           <section class="panel-section is-hidden" data-section="settings">

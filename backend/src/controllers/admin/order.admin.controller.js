@@ -1,4 +1,12 @@
 const orderAdminService = require('../../services/admin/order.admin.service');
+const auditLogService = require('../../services/audit-log.service');
+
+function getAuditActor(req) {
+  return {
+    actorUserId: req.adminUser && req.adminUser.sub ? Number(req.adminUser.sub) : null,
+    actorName: req.adminUser && req.adminUser.username ? req.adminUser.username : 'admin'
+  };
+}
 
 async function getOrders(req, res) {
   try {
@@ -75,13 +83,28 @@ async function updateOrderStatus(req, res) {
       });
     }
 
-    const order = await orderAdminService.updateOrderStatus(orderId, status);
+    const previousOrder = await orderAdminService.getOrderById(orderId);
 
-    if (!order) {
+    if (!previousOrder) {
       return res.status(404).json({
         error: 'order not found'
       });
     }
+
+    const order = await orderAdminService.updateOrderStatus(orderId, status);
+
+    await auditLogService.log({
+      ...getAuditActor(req),
+      action: status === 'cancelled' ? 'ORDER_CANCELLED' : 'ORDER_STATUS_UPDATED',
+      entityType: 'order',
+      entityId: order.id,
+      entityLabel: '#' + order.id + ' ' + order.customer_name,
+      beforeData: previousOrder,
+      afterData: order,
+      metadata: {
+        status: status
+      }
+    });
 
     return res.json({
       message: 'Order status updated successfully',
@@ -99,11 +122,19 @@ async function updateOrderStatus(req, res) {
   }
 }
 
-async function deleteOrder(req, res) {
+async function cancelOrder(req, res) {
   try {
     const orderId = Number.parseInt(req.params.id, 10);
 
     if (Number.isNaN(orderId)) {
+      return res.status(404).json({
+        error: 'order not found'
+      });
+    }
+
+    const existingOrder = await orderAdminService.getOrderById(orderId);
+
+    if (!existingOrder) {
       return res.status(404).json({
         error: 'order not found'
       });
@@ -117,12 +148,23 @@ async function deleteOrder(req, res) {
       });
     }
 
+    await auditLogService.log({
+      ...getAuditActor(req),
+      action: 'ORDER_CANCELLED',
+      entityType: 'order',
+      entityId: order.id,
+      entityLabel: '#' + order.id + ' ' + order.customer_name,
+      beforeData: existingOrder,
+      afterData: order,
+      metadata: null
+    });
+
     return res.json({
       message: 'Order cancelled successfully',
       order: order
     });
   } catch (error) {
-    console.error('[DELETE /api/admin/orders/:id] Error cancelling admin order:', error.message);
+    console.error('[PATCH /api/admin/orders/:id/cancel] Error cancelling admin order:', error.message);
     console.error(error.stack);
 
     return res.status(500).json({
@@ -133,9 +175,63 @@ async function deleteOrder(req, res) {
   }
 }
 
+async function deleteOrder(req, res) {
+  try {
+    const orderId = Number.parseInt(req.params.id, 10);
+
+    if (Number.isNaN(orderId)) {
+      return res.status(404).json({
+        error: 'order not found'
+      });
+    }
+
+    const result = await orderAdminService.hardDeleteOrder(orderId);
+
+    if (!result.order) {
+      return res.status(404).json({
+        error: 'order not found'
+      });
+    }
+
+    if (result.error) {
+      return res.status(result.statusCode).json({
+        error: 'ORDER_DELETE_BLOCKED',
+        message: result.error
+      });
+    }
+
+    await auditLogService.log({
+      ...getAuditActor(req),
+      action: 'ORDER_DELETED',
+      entityType: 'order',
+      entityId: result.order.id,
+      entityLabel: '#' + result.order.id + ' ' + result.order.customer_name,
+      beforeData: result.order,
+      afterData: null,
+      metadata: {
+        deleted: true
+      }
+    });
+
+    return res.json({
+      message: 'Order deleted successfully'
+    });
+  } catch (error) {
+    console.error('[DELETE /api/admin/orders/:id] Error deleting admin order:', error.message);
+    console.error(error.stack);
+
+    return res.status(500).json({
+      error: 'ADMIN_ORDER_DELETE_FAILED',
+      message: 'No se pudo eliminar el pedido.',
+      details: error.message
+    });
+  }
+}
+
 module.exports = {
   getOrders,
   getOrderById,
   updateOrderStatus,
+  cancelOrder,
   deleteOrder
 };

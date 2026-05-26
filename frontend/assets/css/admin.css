@@ -302,6 +302,10 @@ button {
   padding: 0.62rem 0.75rem;
 }
 
+.inline-select--compact {
+  min-width: 170px;
+}
+
 .is-hidden {
   display: none !important;
 }
@@ -821,4 +825,22 @@ button {
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
   font-size: 0.82rem;
+}
+
+.audit-log-card {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.audit-log-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.audit-log-card__detail {
+  color: var(--muted);
+  line-height: 1.5;
 }

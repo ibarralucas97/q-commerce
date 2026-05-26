@@ -153,10 +153,35 @@ async function softDeleteSchedule(scheduleId) {
   return result.rows[0] || null;
 }
 
+async function hardDeleteSchedule(scheduleId) {
+  const capabilities = await getSchemaCapabilities();
+
+  if (!capabilities.hasFulfillmentSchedulesTable) {
+    throw new Error('La tabla fulfillment_schedules no existe en la base actual. EjecutÃ¡ la migraciÃ³n 002_add_fulfillment_schedules.sql.');
+  }
+
+  const result = await pool.query(`
+    DELETE FROM fulfillment_schedules
+    WHERE id = $1
+    RETURNING
+      id,
+      day_of_week,
+      start_time,
+      end_time,
+      fulfillment_type,
+      is_active,
+      created_at,
+      updated_at
+  `, [scheduleId]);
+
+  return result.rows[0] || null;
+}
+
 module.exports = {
   getSchedules,
   getScheduleById,
   createSchedule,
   updateSchedule,
-  softDeleteSchedule
+  softDeleteSchedule,
+  hardDeleteSchedule
 };

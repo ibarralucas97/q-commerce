@@ -187,6 +187,26 @@ async function softDeleteProduct(productId) {
   return getProductById(result.rows[0].id);
 }
 
+async function getOrderItemUsageCount(productId) {
+  const result = await pool.query(`
+    SELECT COUNT(*)::int AS total
+    FROM order_items
+    WHERE product_id = $1
+  `, [productId]);
+
+  return result.rows[0] ? Number.parseInt(result.rows[0].total, 10) || 0 : 0;
+}
+
+async function hardDeleteProduct(productId) {
+  const result = await pool.query(`
+    DELETE FROM products
+    WHERE id = $1
+    RETURNING id
+  `, [productId]);
+
+  return result.rowCount > 0;
+}
+
 module.exports = {
   getProducts,
   getProductById,
@@ -194,5 +214,7 @@ module.exports = {
   categoryExists,
   createProduct,
   updateProduct,
-  softDeleteProduct
+  softDeleteProduct,
+  getOrderItemUsageCount,
+  hardDeleteProduct
 };

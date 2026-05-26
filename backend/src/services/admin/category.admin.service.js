@@ -95,10 +95,38 @@ async function softDeleteCategory(categoryId) {
   return result.rows[0] || null;
 }
 
+async function getAssociatedProductsCount(categoryId) {
+  const result = await pool.query(`
+    SELECT COUNT(*)::int AS total
+    FROM products
+    WHERE category_id = $1
+  `, [categoryId]);
+
+  return result.rows[0] ? Number.parseInt(result.rows[0].total, 10) || 0 : 0;
+}
+
+async function hardDeleteCategory(categoryId) {
+  const result = await pool.query(`
+    DELETE FROM categories
+    WHERE id = $1
+    RETURNING
+      id,
+      name,
+      description,
+      is_active,
+      created_at,
+      updated_at
+  `, [categoryId]);
+
+  return result.rows[0] || null;
+}
+
 module.exports = {
   getCategories,
   getCategoryById,
   createCategory,
   updateCategory,
-  softDeleteCategory
+  softDeleteCategory,
+  getAssociatedProductsCount,
+  hardDeleteCategory
 };

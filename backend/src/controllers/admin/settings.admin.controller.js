@@ -1,4 +1,5 @@
 const settingsAdminService = require('../../services/admin/settings.admin.service');
+const auditLogService = require('../../services/audit-log.service');
 
 function isBoolean(value) {
   return typeof value === 'boolean';
@@ -21,6 +22,13 @@ function normalizeSettingsPayload(body) {
     logo_url: body.logo_url ?? null,
     banner_url: body.banner_url ?? null,
     is_active: body.is_active
+  };
+}
+
+function getAuditActor(req) {
+  return {
+    actorUserId: req.adminUser && req.adminUser.sub ? Number(req.adminUser.sub) : null,
+    actorName: req.adminUser && req.adminUser.username ? req.adminUser.username : 'admin'
   };
 }
 
@@ -80,6 +88,17 @@ async function updateSettings(req, res) {
       ...payload,
       store_name: payload.store_name.trim(),
       delivery_fee: deliveryFee
+    });
+
+    await auditLogService.log({
+      ...getAuditActor(req),
+      action: 'SETTINGS_UPDATED',
+      entityType: 'settings',
+      entityId: existingSettings.id,
+      entityLabel: existingSettings.store_name,
+      beforeData: existingSettings,
+      afterData: updatedSettings,
+      metadata: null
     });
 
     return res.json(updatedSettings);
