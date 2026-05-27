@@ -668,6 +668,21 @@
                 </label>
               </div>
 
+              <div class="upload-card">
+                <label class="field">
+                  <span>Archivo de logo</span>
+                  <input id="settingsLogoFile" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" />
+                </label>
+                <div class="form-actions">
+                  <button class="secondary-button" id="uploadSettingsLogoButton" type="button">Subir logo</button>
+                </div>
+              </div>
+
+              <div class="image-preview logo-preview is-empty" id="settingsLogoPreview">
+                <img id="settingsLogoPreviewImg" alt="Vista previa del logo" hidden />
+                <p id="settingsLogoPreviewText">Sin logo cargado.</p>
+              </div>
+
               <label class="field">
                 <span>Banner URL</span>
                 <input id="settingsBannerUrl" type="url" />
@@ -706,7 +721,7 @@
               </div>
 
               <div class="form-actions">
-                <button class="primary-button" type="submit">Guardar configuracion</button>
+                <button class="primary-button" id="settingsSubmitButton" type="submit">Guardar configuracion</button>
               </div>
             </form>
           </section>

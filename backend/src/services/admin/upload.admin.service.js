@@ -4,15 +4,16 @@ const {
   isCloudinaryConfigured
 } = require('../../config/cloudinary');
 
-async function uploadProductImage(file) {
+async function uploadImage(file, options) {
   if (!isCloudinaryConfigured()) {
     throw new Error('cloudinary is not configured');
   }
 
   const config = getCloudinaryConfig();
   const timestamp = Math.floor(Date.now() / 1000);
+  const folder = options && options.folder ? options.folder : config.folder;
   const paramsToSign = {
-    folder: config.folder,
+    folder: folder,
     timestamp: timestamp
   };
   const signature = buildUploadSignature(paramsToSign, config.apiSecret);
@@ -23,7 +24,7 @@ async function uploadProductImage(file) {
   formData.append('file', blob, file.originalname);
   formData.append('api_key', config.apiKey);
   formData.append('timestamp', String(timestamp));
-  formData.append('folder', config.folder);
+  formData.append('folder', folder);
   formData.append('signature', signature);
 
   const response = await fetch(uploadUrl, {
@@ -42,11 +43,17 @@ async function uploadProductImage(file) {
   }
 
   return {
+    url: responseBody.secure_url,
     image_url: responseBody.secure_url,
     public_id: responseBody.public_id
   };
 }
 
+async function uploadProductImage(file) {
+  return uploadImage(file);
+}
+
 module.exports = {
+  uploadImage,
   uploadProductImage
 };

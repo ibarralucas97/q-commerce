@@ -37,7 +37,13 @@ Agregar las mismas variables en el servicio backend:
 
 ## Endpoint
 
+`POST /api/admin/uploads/image`
+
+Endpoint generico para imagenes del admin, usado por logo del negocio.
+
 `POST /api/admin/uploads/product-image`
+
+Endpoint historico de productos. Se mantiene para no romper el flujo existente.
 
 ## Seguridad
 
@@ -73,6 +79,7 @@ Campo:
 ```json
 {
   "message": "Image uploaded successfully",
+  "url": "https://res.cloudinary.com/...",
   "image_url": "https://res.cloudinary.com/..."
 }
 ```
@@ -92,6 +99,14 @@ Campo:
 3. El backend sube a Cloudinary.
 4. La URL resultante se carga en `image_url`.
 5. Guardar producto normalmente.
+
+## Flujo logo de configuracion
+
+1. Seleccionar archivo en `Admin > Configuracion`.
+2. Presionar `Subir logo`.
+3. El backend sube a Cloudinary usando `POST /api/admin/uploads/image`.
+4. La URL resultante se carga en `logo_url`.
+5. Guardar configuracion normalmente.
 
 ## Importante
 

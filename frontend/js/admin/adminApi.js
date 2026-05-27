@@ -194,8 +194,14 @@
         body: payload
       });
     },
+    uploadImage(file) {
+      return uploadFile('/api/admin/uploads/image', file);
+    },
     uploadProductImage(file) {
       return uploadFile('/api/admin/uploads/product-image', file);
+    },
+    uploadLogoImage(file) {
+      return uploadFile('/api/admin/uploads/image', file);
     },
     deleteProduct(productId) {
       return request('/api/admin/products/' + productId, {

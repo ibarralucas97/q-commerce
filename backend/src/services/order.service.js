@@ -110,6 +110,10 @@ function buildSelectionSummary(selectionDetail) {
 }
 
 function validateOrderPayload(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return 'request body must be a valid JSON object';
+  }
+
   if (typeof payload.customer_name !== 'string' || payload.customer_name.trim() === '') {
     return 'customer_name is required';
   }
@@ -277,7 +281,142 @@ async function getFulfillmentSchedules(client) {
   return result.rows;
 }
 
+function pushInsertValue(columns, placeholders, values, columnName, value, cast) {
+  columns.push(columnName);
+  values.push(value);
+  placeholders.push('$' + values.length + (cast || ''));
+}
+
+async function insertOrder(client, payload, totals, capabilities) {
+  const columns = [];
+  const placeholders = [];
+  const values = [];
+
+  pushInsertValue(columns, placeholders, values, 'customer_name', payload.customer_name.trim());
+  pushInsertValue(columns, placeholders, values, 'customer_phone', payload.customer_phone);
+  pushInsertValue(columns, placeholders, values, 'delivery_type', payload.delivery_type);
+  pushInsertValue(columns, placeholders, values, 'address', payload.delivery_type === 'delivery' ? payload.address.trim() : null);
+
+  if (capabilities.hasOrderCustomerLatitude) {
+    pushInsertValue(columns, placeholders, values, 'customer_latitude', payload.customer_latitude ?? null);
+  }
+
+  if (capabilities.hasOrderCustomerLongitude) {
+    pushInsertValue(columns, placeholders, values, 'customer_longitude', payload.customer_longitude ?? null);
+  }
+
+  if (capabilities.hasOrderMapsUrl) {
+    pushInsertValue(
+      columns,
+      placeholders,
+      values,
+      'maps_url',
+      typeof payload.maps_url === 'string' && payload.maps_url.trim() !== '' ? payload.maps_url.trim() : null
+    );
+  }
+
+  pushInsertValue(
+    columns,
+    placeholders,
+    values,
+    'notes',
+    typeof payload.notes === 'string' && payload.notes.trim() !== '' ? payload.notes.trim() : null
+  );
+
+  if (capabilities.hasOrderFulfillmentDay) {
+    pushInsertValue(
+      columns,
+      placeholders,
+      values,
+      'fulfillment_day',
+      typeof payload.fulfillment_day === 'string' && payload.fulfillment_day.trim() !== '' ? payload.fulfillment_day.trim() : null
+    );
+  }
+
+  if (capabilities.hasOrderFulfillmentTimeRange) {
+    pushInsertValue(
+      columns,
+      placeholders,
+      values,
+      'fulfillment_time_range',
+      typeof payload.fulfillment_time_range === 'string' && payload.fulfillment_time_range.trim() !== '' ? payload.fulfillment_time_range.trim() : null
+    );
+  }
+
+  pushInsertValue(columns, placeholders, values, 'status', mapRequestedStatusToDb('new'));
+  pushInsertValue(columns, placeholders, values, 'subtotal', totals.subtotal);
+  pushInsertValue(columns, placeholders, values, 'delivery_fee', totals.deliveryFee);
+  pushInsertValue(columns, placeholders, values, 'total', totals.total);
+
+  columns.push('created_at', 'updated_at');
+  placeholders.push('NOW()', 'NOW()');
+
+  const returningColumns = [
+    'id',
+    'status',
+    'subtotal',
+    'delivery_fee',
+    'total',
+    capabilities.hasOrderFulfillmentDay ? 'fulfillment_day' : 'NULL::varchar AS fulfillment_day',
+    capabilities.hasOrderFulfillmentTimeRange ? 'fulfillment_time_range' : 'NULL::varchar AS fulfillment_time_range'
+  ];
+
+  const result = await client.query(`
+    INSERT INTO orders (${columns.join(', ')})
+    VALUES (${placeholders.join(', ')})
+    RETURNING ${returningColumns.join(', ')}
+  `, values);
+
+  return result.rows[0];
+}
+
+async function insertOrderItem(client, orderId, item, capabilities) {
+  const columns = [];
+  const placeholders = [];
+  const values = [];
+
+  pushInsertValue(columns, placeholders, values, 'order_id', orderId);
+  pushInsertValue(columns, placeholders, values, 'product_id', item.product_id);
+
+  if (capabilities.hasOrderItemProductOptionId) {
+    pushInsertValue(columns, placeholders, values, 'product_option_id', item.product_option_id);
+  }
+
+  pushInsertValue(columns, placeholders, values, 'product_name', item.product_name);
+
+  if (capabilities.hasOrderItemProductOptionName) {
+    pushInsertValue(columns, placeholders, values, 'product_option_name', item.product_option_name);
+  }
+
+  if (capabilities.hasOrderItemSelectionSummary) {
+    pushInsertValue(columns, placeholders, values, 'selection_summary', item.selection_summary);
+  }
+
+  if (capabilities.hasOrderItemSelectionDetail) {
+    pushInsertValue(columns, placeholders, values, 'selection_detail', JSON.stringify(item.selection_detail || []), '::jsonb');
+  }
+
+  pushInsertValue(columns, placeholders, values, 'quantity', item.quantity);
+  pushInsertValue(columns, placeholders, values, 'unit_price', item.unit_price);
+  pushInsertValue(columns, placeholders, values, 'subtotal', item.subtotal);
+
+  columns.push('created_at');
+  placeholders.push('NOW()');
+
+  await client.query(`
+    INSERT INTO order_items (${columns.join(', ')})
+    VALUES (${placeholders.join(', ')})
+  `, values);
+}
+
 async function createOrder(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return {
+      error: 'request body must be a valid JSON object',
+      statusCode: 400
+    };
+  }
+
   payload.customer_phone = sanitizePhoneNumber(payload.customer_phone);
 
   if (typeof payload.address === 'string') {
@@ -329,9 +468,9 @@ async function createOrder(payload) {
       };
     }
 
-    const productIds = normalizedItems.map(function mapProductId(item) {
+    const productIds = Array.from(new Set(normalizedItems.map(function mapProductId(item) {
       return item.product_id;
-    });
+    })));
     const productOptionIds = Array.from(new Set(normalizedItems.flatMap(function mapOptionIds(item) {
       return item.selected_option_ids || [];
     })));
@@ -354,7 +493,7 @@ async function createOrder(payload) {
       return [option.id, option];
     }));
     const activeProductOptions = await getActiveProductOptionsByProductIds(client, productIds, capabilities);
-    const schedules = await getFulfillmentSchedules(client);
+    const schedules = capabilities.hasFulfillmentSchedulesTable ? await getFulfillmentSchedules(client) : [];
 
     for (const item of normalizedItems) {
       const product = productMap.get(item.product_id);
@@ -505,74 +644,14 @@ async function createOrder(payload) {
       : 0;
     const total = subtotal + deliveryFee;
 
-    const orderInsertResult = await client.query(`
-      INSERT INTO orders (
-        customer_name,
-        customer_phone,
-        delivery_type,
-        address,
-        customer_latitude,
-        customer_longitude,
-        maps_url,
-        notes,
-        fulfillment_day,
-        fulfillment_time_range,
-        status,
-        subtotal,
-        delivery_fee,
-        total,
-        created_at,
-        updated_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
-      RETURNING id, status, subtotal, delivery_fee, total, fulfillment_day, fulfillment_time_range
-    `, [
-      payload.customer_name.trim(),
-      payload.customer_phone,
-      payload.delivery_type,
-      payload.delivery_type === 'delivery' ? payload.address.trim() : null,
-      payload.customer_latitude ?? null,
-      payload.customer_longitude ?? null,
-      typeof payload.maps_url === 'string' && payload.maps_url.trim() !== '' ? payload.maps_url.trim() : null,
-      typeof payload.notes === 'string' && payload.notes.trim() !== '' ? payload.notes.trim() : null,
-      typeof payload.fulfillment_day === 'string' && payload.fulfillment_day.trim() !== '' ? payload.fulfillment_day.trim() : null,
-      typeof payload.fulfillment_time_range === 'string' && payload.fulfillment_time_range.trim() !== '' ? payload.fulfillment_time_range.trim() : null,
-      mapRequestedStatusToDb('new'),
-      subtotal,
-      deliveryFee,
-      total
-    ]);
-
-    const order = orderInsertResult.rows[0];
+    const order = await insertOrder(client, payload, {
+      subtotal: subtotal,
+      deliveryFee: deliveryFee,
+      total: total
+    }, capabilities);
 
     for (const item of orderItems) {
-      await client.query(`
-        INSERT INTO order_items (
-          order_id,
-          product_id,
-          product_option_id,
-          product_name,
-          product_option_name,
-          selection_summary,
-          selection_detail,
-          quantity,
-          unit_price,
-          subtotal,
-          created_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, NOW())
-      `, [
-        order.id,
-        item.product_id,
-        item.product_option_id,
-        item.product_name,
-        item.product_option_name,
-        item.selection_summary,
-        JSON.stringify(item.selection_detail || []),
-        item.quantity,
-        item.unit_price,
-        item.subtotal
-      ]);
+      await insertOrderItem(client, order.id, item, capabilities);
     }
 
     await client.query('COMMIT');

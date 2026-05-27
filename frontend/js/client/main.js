@@ -864,9 +864,10 @@
       global.CartStore.clear();
       global.location.href = whatsappUrl;
     } catch (error) {
+      const checkoutErrorMessage = 'No pudimos registrar el pedido. Revisá los datos e intentá nuevamente.';
       console.error('Error creating order from storefront:', error);
-      elements.checkoutHint.textContent = error.message || 'No se pudo guardar el pedido.';
-      showToast('error', error.message || 'No se pudo guardar el pedido.');
+      elements.checkoutHint.textContent = checkoutErrorMessage;
+      showToast('error', checkoutErrorMessage);
     } finally {
       setCheckoutSubmitting(false);
     }

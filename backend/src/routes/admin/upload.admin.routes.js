@@ -27,7 +27,7 @@ const upload = multer({
   }
 });
 
-router.post('/product-image', function handleUpload(req, res, next) {
+function parseImageUpload(req, res, next) {
   upload.single('image')(req, res, function onUploadComplete(error) {
     if (error) {
       if (error.code === 'LIMIT_FILE_SIZE') {
@@ -38,19 +38,22 @@ router.post('/product-image', function handleUpload(req, res, next) {
 
       if (error.code === 'INVALID_FILE_TYPE') {
         return res.status(400).json({
-          error: 'invalid image type'
+          error: 'El archivo debe ser una imagen JPG, PNG o WebP.'
         });
       }
 
-      console.error('Error parsing product image upload:', error);
+      console.error('Error parsing image upload:', error);
 
       return res.status(500).json({
-        error: 'internal server error'
+        error: 'No se pudo procesar la imagen.'
       });
     }
 
     return next();
   });
-}, uploadAdminController.uploadProductImage);
+}
+
+router.post('/image', parseImageUpload, uploadAdminController.uploadImage);
+router.post('/product-image', parseImageUpload, uploadAdminController.uploadProductImage);
 
 module.exports = router;

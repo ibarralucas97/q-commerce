@@ -172,6 +172,11 @@
     settingsCurrency: document.getElementById('settingsCurrency'),
     settingsDeliveryFee: document.getElementById('settingsDeliveryFee'),
     settingsLogoUrl: document.getElementById('settingsLogoUrl'),
+    settingsLogoFile: document.getElementById('settingsLogoFile'),
+    uploadSettingsLogoButton: document.getElementById('uploadSettingsLogoButton'),
+    settingsLogoPreview: document.getElementById('settingsLogoPreview'),
+    settingsLogoPreviewImg: document.getElementById('settingsLogoPreviewImg'),
+    settingsLogoPreviewText: document.getElementById('settingsLogoPreviewText'),
     settingsBannerUrl: document.getElementById('settingsBannerUrl'),
     settingsPrimaryColorPicker: document.getElementById('settingsPrimaryColorPicker'),
     settingsPrimaryColor: document.getElementById('settingsPrimaryColor'),
@@ -180,6 +185,7 @@
     settingsDeliveryEnabled: document.getElementById('settingsDeliveryEnabled'),
     settingsPickupEnabled: document.getElementById('settingsPickupEnabled'),
     settingsIsActive: document.getElementById('settingsIsActive'),
+    settingsSubmitButton: document.getElementById('settingsSubmitButton'),
     confirmDialog: document.getElementById('confirmDialog'),
     confirmDialogBackdrop: document.getElementById('confirmDialogBackdrop'),
     confirmDialogTitle: document.getElementById('confirmDialogTitle'),
@@ -789,19 +795,40 @@
     syncManualOrderUi();
   }
 
-  function updateProductImagePreview() {
-    const imageUrl = elements.productImageUrl.value.trim();
+  function updateImagePreview(preview, previewImg, previewText, imageUrl) {
     const hasImage = imageUrl !== '';
 
-    elements.productImagePreview.classList.toggle('is-empty', !hasImage);
-    elements.productImagePreviewImg.hidden = !hasImage;
-    elements.productImagePreviewText.hidden = hasImage;
+    preview.classList.toggle('is-empty', !hasImage);
+    previewImg.hidden = !hasImage;
+    previewText.hidden = hasImage;
 
     if (hasImage) {
-      elements.productImagePreviewImg.src = imageUrl;
+      previewImg.src = imageUrl;
     } else {
-      elements.productImagePreviewImg.removeAttribute('src');
+      previewImg.removeAttribute('src');
     }
+  }
+
+  function updateProductImagePreview() {
+    updateImagePreview(
+      elements.productImagePreview,
+      elements.productImagePreviewImg,
+      elements.productImagePreviewText,
+      elements.productImageUrl.value.trim()
+    );
+  }
+
+  function updateSettingsLogoPreview(imageUrl) {
+    updateImagePreview(
+      elements.settingsLogoPreview,
+      elements.settingsLogoPreviewImg,
+      elements.settingsLogoPreviewText,
+      typeof imageUrl === 'string' ? imageUrl.trim() : elements.settingsLogoUrl.value.trim()
+    );
+  }
+
+  function isValidImageFile(file) {
+    return Boolean(file) && ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
   }
 
   function resetCategoryForm() {
@@ -878,6 +905,7 @@
     elements.settingsCurrency.value = state.settings.currency_symbol || 'ARS';
     elements.settingsDeliveryFee.value = state.settings.delivery_fee == null ? 500 : state.settings.delivery_fee;
     elements.settingsLogoUrl.value = state.settings.logo_url || '';
+    updateSettingsLogoPreview();
     elements.settingsBannerUrl.value = state.settings.banner_url || '';
     elements.settingsPrimaryColor.value = state.settings.primary_color || '#c7522a';
     elements.settingsSecondaryColor.value = state.settings.secondary_color || '#f5d6a1';
@@ -1565,6 +1593,11 @@
       return;
     }
 
+    if (!isValidImageFile(selectedFile)) {
+      showToast('warning', 'El archivo debe ser una imagen JPG, PNG o WebP.');
+      return;
+    }
+
     try {
       setButtonLoading(elements.uploadProductImageButton, true, 'Subiendo...', 'Subir imagen');
 
@@ -1577,6 +1610,59 @@
       handleApiError(error);
     } finally {
       setButtonLoading(elements.uploadProductImageButton, false, 'Subiendo...', 'Subir imagen');
+    }
+  }
+
+  function handleSettingsLogoFileChange() {
+    const selectedFile = elements.settingsLogoFile.files && elements.settingsLogoFile.files[0];
+
+    if (!selectedFile) {
+      updateSettingsLogoPreview();
+      return;
+    }
+
+    if (!isValidImageFile(selectedFile)) {
+      elements.settingsLogoFile.value = '';
+      updateSettingsLogoPreview();
+      showToast('warning', 'El archivo debe ser una imagen JPG, PNG o WebP.');
+      return;
+    }
+
+    updateSettingsLogoPreview(URL.createObjectURL(selectedFile));
+  }
+
+  async function handleSettingsLogoUpload() {
+    const selectedFile = elements.settingsLogoFile.files && elements.settingsLogoFile.files[0];
+
+    if (!selectedFile) {
+      return;
+    }
+
+    if (!isValidImageFile(selectedFile)) {
+      showToast('warning', 'El archivo debe ser una imagen JPG, PNG o WebP.');
+      return;
+    }
+
+    try {
+      setButtonLoading(elements.uploadSettingsLogoButton, true, 'Subiendo logo...', 'Subir logo');
+      setButtonLoading(elements.settingsSubmitButton, true, 'Subiendo logo...', 'Guardar configuracion');
+
+      const response = await global.AdminApi.uploadLogoImage(selectedFile);
+      const logoUrl = response.url || response.image_url || '';
+
+      if (!logoUrl) {
+        throw new Error('No se recibió la URL del logo.');
+      }
+
+      elements.settingsLogoUrl.value = logoUrl;
+      elements.settingsLogoFile.value = '';
+      updateSettingsLogoPreview();
+      showToast('success', 'Logo subido correctamente.');
+    } catch (error) {
+      handleApiError(error);
+    } finally {
+      setButtonLoading(elements.uploadSettingsLogoButton, false, 'Subiendo logo...', 'Subir logo');
+      setButtonLoading(elements.settingsSubmitButton, false, 'Subiendo logo...', 'Guardar configuracion');
     }
   }
 
@@ -2185,6 +2271,15 @@
       syncColorField(elements.settingsPrimaryColor, elements.settingsPrimaryColorPicker, '#c7522a');
       syncColorField(elements.settingsSecondaryColor, elements.settingsSecondaryColorPicker, '#f5d6a1');
 
+      const existingLogoUrl = state.settings && state.settings.logo_url ? state.settings.logo_url : '';
+      const logoUrl = elements.settingsLogoUrl.value.trim() || existingLogoUrl;
+
+      if (!elements.settingsLogoUrl.value.trim() && existingLogoUrl) {
+        elements.settingsLogoUrl.value = existingLogoUrl;
+      }
+
+      setButtonLoading(elements.settingsSubmitButton, true, 'Guardando...', 'Guardar configuracion');
+
       await global.AdminApi.updateSettings({
         store_name: elements.settingsStoreName.value.trim(),
         store_description: elements.settingsDescription.value.trim(),
@@ -2198,7 +2293,7 @@
         pickup_enabled: elements.settingsPickupEnabled.checked,
         primary_color: normalizeHexColor(elements.settingsPrimaryColor.value, '#c7522a'),
         secondary_color: normalizeHexColor(elements.settingsSecondaryColor.value, '#f5d6a1'),
-        logo_url: elements.settingsLogoUrl.value.trim(),
+        logo_url: logoUrl,
         banner_url: elements.settingsBannerUrl.value.trim(),
         is_active: elements.settingsIsActive.checked
       });
@@ -2207,6 +2302,8 @@
       showToast('success', 'Configuracion actualizada.');
     } catch (error) {
       handleApiError(error);
+    } finally {
+      setButtonLoading(elements.settingsSubmitButton, false, 'Guardando...', 'Guardar configuracion');
     }
   }
 
@@ -2349,6 +2446,9 @@
     elements.confirmDialogBackdrop.addEventListener('click', function closeDeletionDialog() {
       closeConfirmDialog(false);
     });
+    elements.settingsLogoUrl.addEventListener('input', updateSettingsLogoPreview);
+    elements.settingsLogoFile.addEventListener('change', handleSettingsLogoFileChange);
+    elements.uploadSettingsLogoButton.addEventListener('click', handleSettingsLogoUpload);
     elements.settingsForm.addEventListener('submit', handleSettingsSubmit);
   }
 
